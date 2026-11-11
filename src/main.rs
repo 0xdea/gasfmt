@@ -29,7 +29,8 @@ struct Arguments {
 }
 
 fn main() -> ExitCode {
-    eprintln!("{PROGRAM} {VERSION} - {DESCRIPTION}");
+    let description = DESCRIPTION.strip_suffix('.').unwrap_or(DESCRIPTION);
+    eprintln!("{PROGRAM} {VERSION} - {description}");
     eprintln!("Copyright (c) 2026 {AUTHORS}");
     eprintln!();
 
