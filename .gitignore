@@ -1,0 +1,10 @@
+# Build artifacts
+/target/
+
+
+# OS
+.DS_Store
+
+# Editors
+.idea/
+.zed/
