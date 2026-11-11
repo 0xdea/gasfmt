@@ -7,11 +7,10 @@
 [![](https://img.shields.io/badge/twitter-%400xdea-blue.svg)](https://twitter.com/0xdea)
 [![](https://img.shields.io/badge/mastodon-%40raptor-purple.svg)](https://infosec.exchange/@raptor)
 [![build](https://github.com/0xdea/gasfmt/actions/workflows/build.yml/badge.svg)](https://github.com/0xdea/gasfmt/actions/workflows/build.yml)
-[![doc](https://github.com/0xdea/gasfmt/actions/workflows/doc.yml/badge.svg)](https://github.com/0xdea/gasfmt/actions/workflows/doc.yml)
 
-> "It's important to be quotable."
+> "Having to maintain two separate symbols whose values are dependent on one another is not a good thing in a program."
 >
-> -- Halvar Flake
+> -- Randall Hyde
 
 A formatter for GNU assembler (GAS) sources, targeting the ARM64 dialect accepted by gas and clang: `//` comments
 and sources run through the C preprocessor (`.S` files).
