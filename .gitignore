@@ -1,7 +1,6 @@
 # Build artifacts
 /target/
 
-
 # OS
 .DS_Store
 
