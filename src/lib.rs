@@ -1,7 +1,7 @@
 #![doc = env!("CARGO_PKG_DESCRIPTION")]
 #![doc = ""]
 #![cfg_attr(doc, doc = include_str!("../README.md"))]
-#![doc(html_logo_url = "https://raw.githubusercontent.com/0xdea/gasfmt/master/.img/logo.png")]
+#![doc(html_logo_url = "https://raw.githubusercontent.com/0xdea/gasfmt/master/.img/logo.jpg")]
 
 use crate::line::Parser;
 
