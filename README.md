@@ -15,6 +15,8 @@
 A formatter for GNU assembler (GAS) sources, targeting the ARM64 dialect accepted by gas and clang: `//` comments
 and sources run through the C preprocessor (`.S` files).
 
+![](https://raw.githubusercontent.com/0xdea/gasfmt/master/.img/screen01.png)
+
 ## Features
 
 - Labels at column 0, on a line of their own.

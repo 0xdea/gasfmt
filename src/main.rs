@@ -21,10 +21,10 @@ const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 #[derive(Debug, Parser)]
 #[command(name = PROGRAM, about = None)]
 struct Arguments {
-    /// Report the files that need formatting, without writing them.
+    /// Report the files that need formatting, without writing.
     #[arg(short = 'c', long)]
     check: bool,
-    /// Files to format in place [default: standard input to standard output].
+    /// Files to format in place [default: stdin to stdout].
     files: Vec<PathBuf>,
 }
 
@@ -96,6 +96,7 @@ fn format_stdin(check: bool) -> anyhow::Result<bool> {
 /// before it have already been processed.
 fn format_files(files: &[PathBuf], check: bool) -> anyhow::Result<bool> {
     let mut changed = 0_usize;
+
     for path in files {
         let source = fs::read_to_string(path)
             .with_context(|| format!("failed to read {}", path.display()))?;

@@ -128,6 +128,7 @@ impl Parser {
     /// end are dropped.
     pub fn parse(mut self, source: &str) -> Vec<Line> {
         let mut lines = Vec::new();
+
         for raw in source.lines() {
             self.parse_line(raw, &mut lines);
         }
@@ -144,14 +145,14 @@ impl Parser {
         let continues = trimmed.ends_with('\\');
         let previous = self.continuation;
         let started = self.context;
-        let scan = scan(raw, started);
-        self.context = scan.context;
-
         let is_preprocessor = match previous {
             Continuation::None => started == Context::Code && trimmed.starts_with('#'),
             Continuation::Preprocessor => true,
             Continuation::Statement => false,
         };
+        let scan = scan(raw, started);
+        self.context = scan.context;
+
         if is_preprocessor {
             if continues {
                 self.continuation = Continuation::Preprocessor;
@@ -193,6 +194,7 @@ impl Parser {
         let mut indented = raw.starts_with(char::is_whitespace);
         let mut code = code.trim();
 
+        // A label at the start of a line is always kept on its own line.
         while let Some((name, rest)) = split_label(code) {
             if rest.is_empty() {
                 let name = name.to_owned();
@@ -209,6 +211,8 @@ impl Parser {
             code = rest;
         }
 
+        // A statement at the start of a line is always indented, except for
+        // assignments and non-data directives, which are kept where the author put them.
         if !code.is_empty() {
             let (head, tail) = split_statement(code);
             let indented = self.indent(&head, &tail, indented);

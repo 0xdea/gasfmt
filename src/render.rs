@@ -51,6 +51,8 @@ impl Statement {
 /// Renders `lines` as formatted source text.
 pub fn render(lines: &[Line]) -> String {
     let mut output = String::new();
+
+    // Render each block of aligned lines, leaving other lines as they are.
     for block in lines.chunk_by(|prev, next| prev.is_aligned() && next.is_aligned()) {
         render_block(block, &mut output);
     }
@@ -62,11 +64,13 @@ pub fn render(lines: &[Line]) -> String {
 /// trailing comments of its statements.
 fn render_block(block: &[Line], output: &mut String) {
     let statements = || block.iter().filter_map(Line::statement);
+    // The longest head among statements that have operands.
     let head_width = statements()
         .filter(|statement| !statement.tail.is_empty())
         .map(|statement| statement.head.chars().count())
         .max()
         .unwrap_or_default();
+    // The longest rendered statement, so trailing comments line up.
     let code_width = statements()
         .map(|statement| statement.code(head_width).chars().count())
         .max()
