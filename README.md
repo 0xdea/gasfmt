@@ -13,8 +13,6 @@
 
 A formatter for GNU assembler (GAS) sources, targeting the ARM64 dialect accepted by gas and clang. It is written in Rust and can be used as a library or a command-line tool.
 
-![](https://raw.githubusercontent.com/0xdea/gasfmt/master/.img/screen01.png)
-
 ## Style
 
 Before:
