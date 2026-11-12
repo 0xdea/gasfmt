@@ -76,14 +76,27 @@ pub struct Statement {
 }
 
 /// Lexical context of the scanner within a line.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 enum Context {
     /// Inside a `/* */` block comment.
     Block,
     /// Plain code.
+    #[default]
     Code,
     /// Inside a string literal.
     Text,
+}
+
+/// What a line ending with a backslash continues on the next line.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+enum Continuation {
+    /// The line doesn't end with a backslash.
+    #[default]
+    None,
+    /// A C preprocessor directive.
+    Preprocessor,
+    /// A statement or a comment.
+    Statement,
 }
 
 /// What the scanner found in a line.
@@ -93,17 +106,17 @@ struct Scan {
     comment: Option<usize>,
     /// Whether the line holds constructs that are passed through unchanged.
     verbatim: bool,
-    /// Whether a block comment is still open at the end of the line.
-    in_block: bool,
+    /// The lexical context at the end of the line.
+    context: Context,
 }
 
 /// Line classifier, carrying the state that spans several lines.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct Parser {
-    /// Whether the previous line left a block comment open.
-    in_block: bool,
-    /// Whether the previous preprocessor line ended with a backslash.
-    in_continuation: bool,
+    /// The lexical context in which the previous line ended.
+    context: Context,
+    /// What the previous line continues on the current one.
+    continuation: Continuation,
     /// Nesting depth of `.macro` definitions.
     macro_depth: usize,
 }
@@ -128,21 +141,44 @@ impl Parser {
     /// Classifies the `raw` line and appends the result to `lines`.
     fn parse_line(&mut self, raw: &str, lines: &mut Vec<Line>) {
         let trimmed = raw.trim();
-        if self.in_continuation {
-            self.in_continuation = trimmed.ends_with('\\');
-            lines.push(Line::Verbatim(raw.to_owned()));
+        let continues = trimmed.ends_with('\\');
+        let previous = self.continuation;
+        let started = self.context;
+        let scan = scan(raw, started);
+        self.context = scan.context;
+
+        let is_preprocessor = match previous {
+            Continuation::None => started == Context::Code && trimmed.starts_with('#'),
+            Continuation::Preprocessor => true,
+            Continuation::Statement => false,
+        };
+        if is_preprocessor {
+            if continues {
+                self.continuation = Continuation::Preprocessor;
+            } else {
+                self.continuation = Continuation::None;
+                // A string literal can't outlive the directive, so a stray
+                // quote in it doesn't affect the lines that follow.
+                if self.context == Context::Text {
+                    self.context = Context::Code;
+                }
+            }
+            lines.push(if previous == Continuation::None {
+                Line::Preprocessor(trimmed.to_owned())
+            } else {
+                Line::Verbatim(raw.to_owned())
+            });
             return;
         }
 
-        let scan = scan(raw, self.in_block);
-        let was_in_block = self.in_block;
-        self.in_block = scan.in_block;
-        if !was_in_block && trimmed.starts_with('#') {
-            self.in_continuation = trimmed.ends_with('\\');
-            lines.push(Line::Preprocessor(trimmed.to_owned()));
-            return;
-        }
-        if scan.verbatim {
+        self.continuation = if continues {
+            Continuation::Statement
+        } else {
+            Continuation::None
+        };
+        // Joining a continued line with the next one can't be done safely,
+        // since the backslash may even split a symbol.
+        if continues || previous == Continuation::Statement || scan.verbatim {
             lines.push(Line::Verbatim(raw.to_owned()));
             return;
         }
@@ -222,15 +258,12 @@ impl Parser {
 }
 
 /// Scans `line` for a `//` comment and for constructs that are passed
-/// through unchanged (`/* */` comments and `;` separators), starting inside
-/// a block comment if `in_block` is set.
-fn scan(line: &str, in_block: bool) -> Scan {
-    let mut context = if in_block {
-        Context::Block
-    } else {
-        Context::Code
-    };
-    let mut verbatim = in_block;
+/// through unchanged (`/* */` comments, `;` separators, and string literals
+/// spanning several lines), starting in the `context` left open by the
+/// previous line.
+fn scan(line: &str, context: Context) -> Scan {
+    let mut context = context;
+    let mut verbatim = context != Context::Code;
     let mut chars = line.char_indices().peekable();
 
     while let Some((offset, ch)) = chars.next() {
@@ -240,7 +273,7 @@ fn scan(line: &str, in_block: bool) -> Scan {
                 return Scan {
                     comment: Some(offset),
                     verbatim,
-                    in_block: false,
+                    context,
                 };
             }
             (Context::Code, '/', Some('*')) => {
@@ -255,6 +288,11 @@ fn scan(line: &str, in_block: bool) -> Scan {
                 chars.next();
                 context = Context::Code;
             }
+            // Skip the escaped character of a character constant.
+            (Context::Code, '\'', Some('\\')) => {
+                chars.next();
+                chars.next();
+            }
             // Skip the character of a character constant or escape sequence.
             (Context::Code, '\'', _) | (Context::Text, '\\', _) => {
                 chars.next();
@@ -265,8 +303,8 @@ fn scan(line: &str, in_block: bool) -> Scan {
 
     Scan {
         comment: None,
-        verbatim,
-        in_block: context == Context::Block,
+        verbatim: verbatim || context != Context::Code,
+        context,
     }
 }
 
@@ -344,8 +382,17 @@ fn normalize(operands: &str) -> String {
         match (context, ch) {
             (Context::Code, '"') => context = Context::Text,
             (Context::Text, '"') => context = Context::Code,
-            // Copy the character of a character constant or escape sequence.
-            (Context::Code, '\'') | (Context::Text, '\\') => normalized.extend(chars.next()),
+            // Copy the character of a character constant, which may be
+            // escaped.
+            (Context::Code, '\'') => {
+                let constant = chars.next();
+                normalized.extend(constant);
+                if constant == Some('\\') {
+                    normalized.extend(chars.next());
+                }
+            }
+            // Copy the character of an escape sequence.
+            (Context::Text, '\\') => normalized.extend(chars.next()),
             (Context::Block | Context::Code | Context::Text, _) => {}
         }
     }
@@ -486,6 +533,74 @@ mod tests {
                 Line::Verbatim("   1 ,2".to_owned()),
             ],
             "separators, block comments and continuations should be kept"
+        );
+    }
+
+    #[test]
+    fn multiline_string_is_passed_through() {
+        assert_eq!(
+            parse("\t.ascii \"hello\n   world  ,x\"\n  ret"),
+            [
+                Line::Verbatim("\t.ascii \"hello".to_owned()),
+                Line::Verbatim("   world  ,x\"".to_owned()),
+                statement(true, "ret", "", None),
+            ],
+            "only the lines holding the literal should be kept as written"
+        );
+    }
+
+    #[test]
+    fn backslash_continuation_is_passed_through() {
+        assert_eq!(
+            parse("\tb lab\\\nel\n  ret"),
+            [
+                Line::Verbatim("\tb lab\\".to_owned()),
+                Line::Verbatim("el".to_owned()),
+                statement(true, "ret", "", None),
+            ],
+            "a continued statement should be kept as written on both lines"
+        );
+        assert_eq!(
+            parse("\t.ascii \"a\\\nb\"\n  ret"),
+            [
+                Line::Verbatim("\t.ascii \"a\\".to_owned()),
+                Line::Verbatim("b\"".to_owned()),
+                statement(true, "ret", "", None),
+            ],
+            "a literal closed on the continuation line should not stay open"
+        );
+    }
+
+    #[test]
+    fn open_string_does_not_outlive_a_preprocessor_directive() {
+        assert_eq!(
+            parse("#error don't \"x\n  mov x0,x1"),
+            [
+                Line::Preprocessor("#error don't \"x".to_owned()),
+                statement(true, "mov", "x0, x1", None),
+            ],
+            "a stray quote in a directive should not affect the next line"
+        );
+        assert_eq!(
+            parse("#define S \"a \\\n b\"\n  ret"),
+            [
+                Line::Preprocessor("#define S \"a \\".to_owned()),
+                Line::Verbatim(" b\"".to_owned()),
+                statement(true, "ret", "", None),
+            ],
+            "a literal can span the continuation lines of a directive"
+        );
+    }
+
+    #[test]
+    fn escaped_quote_character_constant_is_not_a_string() {
+        assert_eq!(
+            parse("\tmov w0,#'\\\"' // quote\n  ret"),
+            [
+                statement(true, "mov", "w0, #'\\\"'", Some("// quote")),
+                statement(true, "ret", "", None),
+            ],
+            "the quote of the constant should not open a literal"
         );
     }
 

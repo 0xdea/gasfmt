@@ -108,4 +108,21 @@ mod tests {
             "a second pass should change nothing"
         );
     }
+
+    #[test]
+    fn multiline_constructs_are_passed_through() {
+        let source = "  .ascii \"a\n  b ,c\"\n  b la\\\nbel\n  mov x0,x1\n";
+        let formatted = "  .ascii \"a\n  b ,c\"\n  b la\\\nbel\n\tmov x0, x1\n";
+
+        assert_eq!(
+            format(source),
+            formatted,
+            "only the statement after the literal and the continuation should change"
+        );
+        assert_eq!(
+            format(formatted),
+            formatted,
+            "a second pass should change nothing"
+        );
+    }
 }

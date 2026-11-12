@@ -59,8 +59,11 @@ _asmMain:
 - Comment-only lines, assignments, and directives that don't emit data (e.g., `.balign`, `.global`) keep the
   indentation level chosen by the author, either none or one tab, because both are legitimate.
 - Operand expressions aren't reformatted beyond whitespace runs and commas (e.g., `a+b` stays as it is).
-- Lines holding `/* */` block comments or `;` statement separators, and the continuation lines of a preprocessor
-  directive ending with a backslash, are passed through unchanged.
+- Lines holding `/* */` block comments, `;` statement separators, or a string literal that spans several lines are
+  passed through unchanged. So are a line ending with a backslash and the line that continues it, except for the
+  first line of a preprocessor directive.
+- A string literal left open (e.g., by a stray `"` in a comment style that isn't recognized) makes the lines that
+  follow pass through unchanged, up to the next `"`.
 - Preprocessor directives are moved to column 0, so nested `#if` blocks lose their indentation.
 - Other comment styles (e.g., `@` or a `#` that doesn't start a line) aren't recognized.
 
