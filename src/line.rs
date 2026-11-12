@@ -303,7 +303,16 @@ fn split_statement(code: &str) -> (String, String) {
         return (symbol.to_owned(), tail.trim_end().to_owned());
     }
 
-    let (head, operands) = code.split_once(char::is_whitespace).unwrap_or((code, ""));
+    // A string literal can follow the head without whitespace, so the head
+    // also ends at a quote. A statement that starts with one (e.g., a quoted
+    // symbol name) can't be split safely, and is kept whole.
+    let head_len = match code.find(|ch: char| ch.is_whitespace() || ch == '"') {
+        Some(0) | None => code.len(),
+        Some(offset) => offset,
+    };
+    // The length comes from `find`, so the split can't fail.
+    let (head, operands) = code.split_at_checked(head_len).unwrap_or((code, ""));
+
     (head.to_owned(), normalize(operands))
 }
 
@@ -387,6 +396,24 @@ mod tests {
             parse("\t.asciz \"http://x\" // url"),
             [statement(true, ".asciz", "\"http://x\"", Some("// url"))],
             "only the sigil outside the literal should start the comment"
+        );
+    }
+
+    #[test]
+    fn string_glued_to_its_directive_is_kept_untouched() {
+        assert_eq!(
+            parse("\t.ascii\"a  ,b\" // text"),
+            [statement(true, ".ascii", "\"a  ,b\"", Some("// text"))],
+            "the directive should end where the literal starts"
+        );
+    }
+
+    #[test]
+    fn statement_starting_with_a_quote_is_kept_whole() {
+        assert_eq!(
+            parse("\"my  label\": ret  ,x"),
+            [statement(true, "\"my  label\": ret  ,x", "", None)],
+            "a statement that can't be split safely should not be normalized"
         );
     }
 
