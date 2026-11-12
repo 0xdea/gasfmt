@@ -49,7 +49,6 @@ _asmMain:
 - A string literal left open (e.g., by a stray `"` in a comment style that isn't recognized) makes the lines that
   follow pass through unchanged, up to the next `"`.
 - Preprocessor directives are moved to column 0, so nested `#if` blocks lose their indentation.
-- Other comment styles (e.g., `@` or a `#` that doesn't start a line) aren't recognized.
 
 ## Installing
 
@@ -135,7 +134,7 @@ Zed passes the buffer to gasfmt on standard input and replaces it with what gasf
 
 ## Credits
 
-- The style is the one of [my code](https://github.com/0xdea/AoAA) for
+- The style is the one used in [my code](https://github.com/0xdea/AoAA) for
   [The Art of ARM Assembly Language](https://artofarm.randallhyde.com/) by Randall Hyde.
 
 ## Changelog
