@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.0] - 2024-06-10
 
-- First release to be published to [crates.io](https://crates.io/).
+First release to be published to [crates.io](https://crates.io/).
 
 [unreleased]: https://github.com/0xdea/gasfmt/compare/v0.1.1...HEAD
 [0.1.1]: https://github.com/0xdea/gasfmt/compare/v0.1.0...v0.1.1
