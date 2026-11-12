@@ -3,7 +3,6 @@
 [![](https://img.shields.io/github/stars/0xdea/gasfmt.svg?style=flat&color=yellow)](https://github.com/0xdea/gasfmt)
 [![](https://img.shields.io/crates/v/gasfmt?style=flat&color=green)](https://crates.io/crates/gasfmt)
 [![](https://img.shields.io/crates/d/gasfmt?style=flat&color=red)](https://crates.io/crates/gasfmt)
-[![](https://img.shields.io/badge/todo-0.1.1-violet)](https://todo.com/)
 [![](https://img.shields.io/badge/twitter-%400xdea-blue.svg)](https://twitter.com/0xdea)
 [![](https://img.shields.io/badge/mastodon-%40raptor-purple.svg)](https://infosec.exchange/@raptor)
 [![build](https://github.com/0xdea/gasfmt/actions/workflows/build.yml/badge.svg)](https://github.com/0xdea/gasfmt/actions/workflows/build.yml)
@@ -12,26 +11,9 @@
 >
 > -- Randall Hyde
 
-A formatter for GNU assembler (GAS) sources, targeting the ARM64 dialect accepted by gas and clang: `//` comments
-and sources run through the C preprocessor (`.S` files).
+A formatter for GNU assembler (GAS) sources, targeting the ARM64 dialect accepted by gas and clang. It is written in Rust and can be used as a library or a command-line tool.
 
 ![](https://raw.githubusercontent.com/0xdea/gasfmt/master/.img/screen01.png)
-
-## Features
-
-- Labels at column 0, on a line of their own.
-- Instructions, macro invocations, and data directives (`.asciz`, `.word`, ...) indented with one tab.
-- Macro definitions (`.macro` to `.endm`) and preprocessor directives at column 0.
-- Operands aligned within a block, by padding mnemonics to the widest one in the block. The same goes for the `=`
-  of assignments.
-- Trailing comments aligned within a block, one space past its longest statement.
-- Operands separated by a comma followed by a single space, and runs of whitespace collapsed.
-- No trailing whitespace, no consecutive blank lines, and a newline at the end of the file.
-- Comments and string literals are never modified.
-- Formatting is idempotent.
-
-A block is a run of consecutive statements, possibly with comment lines among them. Blank lines, labels, and
-preprocessor directives end it.
 
 ## Style
 
@@ -150,12 +132,6 @@ and add it as an external formatter to your `settings.json`:
 ```
 
 Zed passes the buffer to gasfmt on standard input and replaces it with what gasfmt writes to standard output.
-
-## Compatibility
-
-Tested on:
-
-- Apple macOS Tahoe 26
 
 ## Credits
 
