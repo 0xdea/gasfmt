@@ -29,10 +29,10 @@ struct Arguments {
 }
 
 fn main() -> ExitCode {
-    let description = DESCRIPTION.strip_suffix('.').unwrap_or(DESCRIPTION);
-    eprintln!("{PROGRAM} {VERSION} - {description}");
-    eprintln!("Copyright (c) 2026 {AUTHORS}");
-    eprintln!();
+    eprintln!(
+        "{PROGRAM} {VERSION} - {}\nCopyright (c) 2026 {AUTHORS}\n",
+        DESCRIPTION.trim_end_matches('.')
+    );
 
     let args = Arguments::parse();
     let result = if args.files.is_empty() {
