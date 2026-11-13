@@ -54,7 +54,7 @@ gasfmt is line-oriented by design: it never parses instructions, operands, or ex
 - `scan` walks a line once to find the `//` comment and to track the lexical `Context` (code, `/* */` comment, string literal).
 - `split_label` peels leading `name:` labels (code sharing a line with its label moves to its own line), `split_statement` splits the rest into head and tail (an assignment's tail is `= expression`), and `normalize` cleans the tail's whitespace and commas while copying string literals and character constants untouched.
 - `Parser::indent` decides indentation: instructions and the directives in `DATA_DIRECTIVES` get one tab, everything inside `.macro`/`.endm` sits at column 0, and assignments and other directives keep the author's choice.
-- The parser carries three pieces of state across lines: the `Context` the previous line ended in, the `Continuation` kind (a line ending with a backslash), and the `.macro` nesting depth.
+- The parser carries three pieces of state across lines: the `Context` the previous line ended in, the `Continuation` kind (a line ending with a backslash), and the `.macro` nesting depth (`track_macros`, run on every line that starts a statement in plain code, including the ones passed through).
 
 **Stage 2, rendering (`src/render.rs`).** Consecutive `Statement` and `Comment` lines form a block; any other line ends it. Per block, heads are padded to the widest head that has operands, and trailing comments start one space past the longest statement.
 

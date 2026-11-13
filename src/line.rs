@@ -178,6 +178,13 @@ impl Parser {
             return;
         }
 
+        // Macro definitions are tracked on every line that starts a
+        // statement, even one passed through, so that the lines that follow
+        // are indented as they should.
+        if previous == Continuation::None && started == Context::Code {
+            self.track_macros(trimmed);
+        }
+
         // The continuation is recorded before any line is passed through,
         // since such a line (e.g., `label: #x \`) can end with a backslash too.
         self.continuation = if continues {
@@ -255,18 +262,24 @@ impl Parser {
         }
     }
 
+    /// Updates the nesting depth of macro definitions if `code`, the text of
+    /// a line that starts a statement, starts or ends one after its labels.
+    fn track_macros(&mut self, code: &str) {
+        let (directive, _) = split_symbol(skip_labels(code));
+
+        if is_macro_start(directive) {
+            self.macro_depth = self.macro_depth.saturating_add(1);
+        } else if is_macro_end(directive) {
+            self.macro_depth = self.macro_depth.saturating_sub(1);
+        } else {
+            // Any other line leaves the depth as it is.
+        }
+    }
+
     /// Decides whether the statement made of `head` and `tail` is indented,
     /// given whether it was `indented` in the source.
-    fn indent(&mut self, head: &str, tail: &str, indented: bool) -> bool {
-        if head.eq_ignore_ascii_case(".macro") {
-            self.macro_depth = self.macro_depth.saturating_add(1);
-            return false;
-        }
-        if head.eq_ignore_ascii_case(".endm") || head.eq_ignore_ascii_case(".endmacro") {
-            self.macro_depth = self.macro_depth.saturating_sub(1);
-            return false;
-        }
-        if self.macro_depth > 0 {
+    fn indent(&self, head: &str, tail: &str, indented: bool) -> bool {
+        if self.macro_depth > 0 || is_macro_start(head) || is_macro_end(head) {
             return false;
         }
 
@@ -387,6 +400,16 @@ fn split_label(code: &str) -> Option<(&str, &str)> {
     let rest = rest.strip_prefix(':')?;
 
     (!name.is_empty()).then(|| (name, rest.trim_start()))
+}
+
+/// Returns whether `directive` starts a macro definition.
+fn is_macro_start(directive: &str) -> bool {
+    directive.eq_ignore_ascii_case(".macro")
+}
+
+/// Returns whether `directive` ends a macro definition.
+fn is_macro_end(directive: &str) -> bool {
+    directive.eq_ignore_ascii_case(".endm") || directive.eq_ignore_ascii_case(".endmacro")
 }
 
 /// Returns what follows the leading labels of `code`.
@@ -675,6 +698,44 @@ mod tests {
                 statement(true, ".IFNC", "\\x  y,z", None),
             ],
             "whitespace inside the compared strings should not be normalized"
+        );
+    }
+
+    #[test]
+    fn macro_nesting_is_tracked_on_lines_passed_through() {
+        assert_eq!(
+            parse(".macro m\n  nop\n.endm; nop\n  mov x0 ,x1"),
+            [
+                statement(false, ".macro", "m", None),
+                statement(false, "nop", "", None),
+                Line::Verbatim(".endm; nop".to_owned()),
+                statement(true, "mov", "x0, x1", None),
+            ],
+            "the end of a macro should be seen on a line that isn't formatted"
+        );
+        assert_eq!(
+            parse("lab: .macro m /* c */\n  nop\n.endm\n  ret"),
+            [
+                Line::Verbatim("lab: .macro m /* c */".to_owned()),
+                statement(false, "nop", "", None),
+                statement(false, ".endm", "", None),
+                statement(true, "ret", "", None),
+            ],
+            "the start of a macro should be seen on a line that isn't formatted"
+        );
+        assert_eq!(
+            parse("/*\n.macro m\n*/\n  .text\n.ascii \"\n.macro m\n\"\n  .text"),
+            [
+                Line::Verbatim("/*".to_owned()),
+                Line::Verbatim(".macro m".to_owned()),
+                Line::Verbatim("*/".to_owned()),
+                statement(true, ".text", "", None),
+                Line::Verbatim(".ascii \"".to_owned()),
+                Line::Verbatim(".macro m".to_owned()),
+                Line::Verbatim("\"".to_owned()),
+                statement(true, ".text", "", None),
+            ],
+            "a comment or a string should not start a macro"
         );
     }
 
