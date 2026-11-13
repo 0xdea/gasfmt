@@ -143,6 +143,7 @@ impl Parser {
     fn parse_line(&mut self, raw: &str, lines: &mut Vec<Line>) {
         let trimmed = raw.trim();
         let continues = trimmed.ends_with('\\');
+
         let previous = self.continuation;
         let started = self.context;
         let is_preprocessor = match previous {
@@ -150,6 +151,9 @@ impl Parser {
             Continuation::Preprocessor => true,
             Continuation::Statement => false,
         };
+
+        // The context is tracked on every line, even one passed through, so
+        // that a string or a comment opened here is known to the next line.
         let scan = scan(raw, started);
         self.context = scan.context;
 
@@ -158,13 +162,15 @@ impl Parser {
                 self.continuation = Continuation::Preprocessor;
             } else {
                 self.continuation = Continuation::None;
-                // A string literal can't outlive the directive, so a stray
-                // quote in it doesn't affect the lines that follow.
+                // When the directive ends, the context is reset to code,
+                // so a string literal that was left open in it doesn't
+                // affect the lines that follow.
                 if self.context == Context::Text {
                     self.context = Context::Code;
                 }
             }
             lines.push(if previous == Continuation::None {
+                // Only the first line of a directive is safe to move.
                 Line::Preprocessor(trimmed.to_owned())
             } else {
                 Line::Verbatim(raw.to_owned())
@@ -172,11 +178,14 @@ impl Parser {
             return;
         }
 
+        // The continuation is recorded before any line is passed through,
+        // since such a line (e.g., `label: #x \`) can end with a backslash too.
         self.continuation = if continues {
             Continuation::Statement
         } else {
             Continuation::None
         };
+
         // On a line of its own, a hash that follows a label would be taken
         // for the start of a preprocessor directive by the next pass.
         if previous == Continuation::None
@@ -191,6 +200,7 @@ impl Parser {
             lines.push(Line::Verbatim(raw.to_owned()));
             return;
         }
+
         // Joining a continued line with the next one can't be done safely,
         // since the backslash may even split a symbol.
         if continues || previous == Continuation::Statement || scan.verbatim {
