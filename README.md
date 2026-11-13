@@ -13,6 +13,23 @@
 
 A formatter for GNU assembler (GAS) sources, targeting the ARM64 dialect accepted by gas and clang. It is written in Rust and can be used as a library or a command-line tool.
 
+## Features
+
+- Labels are placed on their own line at column 0. Code that shares a line with its label is moved to the next one.
+- Instructions and directives that emit data (e.g., `.byte`, `.ascii`) are indented with one tab.
+- In a block of consecutive statements, operands are aligned in a column with spaces, and so are assignments at
+  their `=` sign. Trailing `//` comments are aligned one space past the longest statement of the block. A label, a
+  blank line, or a preprocessor directive ends the block.
+- Operands are separated by a comma followed by one space, and other runs of whitespace are reduced to one space.
+- `.macro` definitions are placed at column 0, bodies included.
+- Preprocessor directives are placed at column 0.
+- Trailing whitespace is removed, CRLF line endings are converted to LF, consecutive blank lines are reduced to one,
+  and the output ends with a single newline.
+- Comments, string literals, and character constants are never modified.
+- Formatting is idempotent: formatting the output again changes nothing.
+- Files are formatted in place, only checked, or shown as a unified diff. Standard input is formatted to standard
+  output, so that gasfmt can be used as an editor filter.
+
 ## Style
 
 Before:

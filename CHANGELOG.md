@@ -29,8 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Keep the single-quoted strings of `.ifc` and `.ifnc` as written, instead of collapsing their whitespace.
 - Keep the operands of `.ifc` and `.ifnc` as written, quoted or not, instead of normalizing their commas and
   whitespace: clang compares them whitespace included, so `.ifc a  b,a b` took the other branch once formatted.
-- Keep a character constant that immediately follows its directive (e.g., `.byte' '`) as written, instead of
-  padding it.
+- Stop the padding that aligns the operands from ending up inside a character constant that immediately follows
+  its directive (e.g., `.byte' '` became `.byte'  '`).
 - Stop a `"` or a `/*` that follows a single quote that isn't part of a closed character constant from leaving the
   lines after it unformatted.
 - Recognize a `.macro` or an `.endm` on a line that is passed through unchanged (e.g., `.endm; nop` or
