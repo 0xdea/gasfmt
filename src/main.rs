@@ -73,19 +73,6 @@ fn main() -> ExitCode {
     }
 }
 
-/// Writes to `output` the unified diff that turns `source` into `formatted`,
-/// both called `name` in its header.
-///
-/// # Errors
-///
-/// Returns an error if `output` can't be written.
-fn write_diff(output: impl Write, name: &str, source: &str, formatted: &str) -> io::Result<()> {
-    TextDiff::from_lines(source, formatted)
-        .unified_diff()
-        .header(name, name)
-        .to_writer(output)
-}
-
 /// Formats standard input to standard output or, depending on `mode`, only
 /// reports whether it needs formatting or shows the changes.
 ///
@@ -172,4 +159,17 @@ fn format_files(files: &[PathBuf], mode: Mode) -> anyhow::Result<bool> {
     }
 
     Ok(mode == Mode::Write || changed == 0)
+}
+
+/// Writes to `output` the unified diff that turns `source` into `formatted`,
+/// both called `name` in its header.
+///
+/// # Errors
+///
+/// Returns an error if `output` can't be written.
+fn write_diff(output: impl Write, name: &str, source: &str, formatted: &str) -> io::Result<()> {
+    TextDiff::from_lines(source, formatted)
+        .unified_diff()
+        .header(name, name)
+        .to_writer(output)
 }

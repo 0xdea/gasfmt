@@ -9,8 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add the `--diff` option, which shows the changes that formatting would make as a unified diff, without writing
-  them.
+- Add the `--diff` option, which shows the changes that formatting would make as a unified diff.
 
 ### Changed
 
