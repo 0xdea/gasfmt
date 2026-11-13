@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   padding it.
 - Stop a `"` or a `/*` that follows a single quote that isn't part of a closed character constant from leaving the
   lines after it unformatted.
+- Pass a line where a `#` follows a label (e.g., `label: #define X 1`) through unchanged, instead of moving the
+  `#` to a line of its own, where a second run would move it again as a preprocessor directive. The label now
+  stays on that line, which keeps its indentation and its comment as written.
 
 ## [0.1.0] - 2026-11-12
 

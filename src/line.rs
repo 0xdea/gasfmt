@@ -177,6 +177,20 @@ impl Parser {
         } else {
             Continuation::None
         };
+        // On a line of its own, a hash that follows a label would be taken
+        // for the start of a preprocessor directive by the next pass.
+        if previous == Continuation::None
+            && started == Context::Code
+            && skip_labels(trimmed).starts_with('#')
+        {
+            // As for a directive, a stray quote in it doesn't affect the
+            // lines that follow.
+            if !continues && self.context == Context::Text {
+                self.context = Context::Code;
+            }
+            lines.push(Line::Verbatim(raw.to_owned()));
+            return;
+        }
         // Joining a continued line with the next one can't be done safely,
         // since the backslash may even split a symbol.
         if continues || previous == Continuation::Statement || scan.verbatim {
@@ -363,6 +377,15 @@ fn split_label(code: &str) -> Option<(&str, &str)> {
     let rest = rest.strip_prefix(':')?;
 
     (!name.is_empty()).then(|| (name, rest.trim_start()))
+}
+
+/// Returns what follows the leading labels of `code`.
+fn skip_labels(mut code: &str) -> &str {
+    while let Some((_, rest)) = split_label(code) {
+        code = rest;
+    }
+
+    code
 }
 
 /// Splits the statement in `code` into its head and its normalized tail.
@@ -570,6 +593,49 @@ mod tests {
             parse("\t.ascii\"a  ,b\" // text"),
             [statement(true, ".ascii", "\"a  ,b\"", Some("// text"))],
             "the directive should end where the literal starts"
+        );
+    }
+
+    #[test]
+    fn hash_after_a_label_is_passed_through() {
+        for source in ["lab: #define X  1", "a: b:#x ,y // c"] {
+            assert_eq!(
+                parse(source),
+                [Line::Verbatim(source.to_owned())],
+                "a hash moved to its own line would turn into a directive"
+            );
+        }
+        assert_eq!(
+            parse("lab: mov x0 ,#1"),
+            [
+                Line::Label {
+                    name: "lab".to_owned(),
+                    comment: None,
+                },
+                statement(true, "mov", "x0, #1", None),
+            ],
+            "other code should still move off the line of its label"
+        );
+    }
+
+    #[test]
+    fn open_string_does_not_outlive_a_hash_after_a_label() {
+        assert_eq!(
+            parse("lab: #error \"open\n  mov x0 ,x1"),
+            [
+                Line::Verbatim("lab: #error \"open".to_owned()),
+                statement(true, "mov", "x0, x1", None),
+            ],
+            "a stray quote should not affect the lines that follow"
+        );
+        assert_eq!(
+            parse("lab: #x /* open\n  mov x0 ,x1 */\n  mov x0 ,x1"),
+            [
+                Line::Verbatim("lab: #x /* open".to_owned()),
+                Line::Verbatim("  mov x0 ,x1 */".to_owned()),
+                statement(true, "mov", "x0, x1", None),
+            ],
+            "a block comment should still continue on the lines that follow"
         );
     }
 

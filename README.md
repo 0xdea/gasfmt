@@ -50,6 +50,7 @@ _asmMain:
   single-quoted strings of `.ifc` or a constant without its closing quote, are passed through unchanged. What
   follows such a quote isn't examined, so a string literal or a `/* */` comment that starts there and continues on
   the next lines isn't recognized.
+- A line where a `#` follows a label (e.g., `label: #define X 1`) is passed through unchanged.
 - Preprocessor directives are moved to column 0, so nested `#if` blocks lose their indentation.
 
 ## Installing
