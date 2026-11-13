@@ -8,10 +8,14 @@ use crate::line::Parser;
 mod line;
 mod render;
 
+/// The byte order mark that some editors write at the start of a file.
+const BYTE_ORDER_MARK: char = '\u{feff}';
+
 /// Formats the assembly `source` text.
 ///
 /// The output always ends with a newline, unless it's empty. Formatting is
-/// idempotent: formatting the output again returns it unchanged.
+/// idempotent: formatting the output again returns it unchanged. A byte
+/// order mark at the start of `source` is kept in front of the output.
 ///
 /// # Examples
 ///
@@ -24,7 +28,16 @@ mod render;
 /// ```
 #[must_use]
 pub fn format(source: &str) -> String {
-    render::render(&Parser::default().parse(source))
+    // The mark isn't part of the first line, which would not be recognized
+    // with it in front (e.g., as a preprocessor directive).
+    let text = source.strip_prefix(BYTE_ORDER_MARK);
+    let formatted = render::render(&Parser::default().parse(text.unwrap_or(source)));
+
+    if text.is_some() {
+        format!("{BYTE_ORDER_MARK}{formatted}")
+    } else {
+        formatted
+    }
 }
 
 #[cfg(test)]
@@ -156,6 +169,21 @@ mod tests {
             "\t.ifc a  b,a b // c\n\tnop\n\t.endif\n",
             "only the whitespace around the operands should change"
         );
+    }
+
+    #[test]
+    fn byte_order_mark_is_kept_in_front_of_the_first_line() {
+        assert_eq!(
+            format("\u{feff}#define V 7\n  mov x0,#V\n"),
+            "\u{feff}#define V 7\n\tmov x0, #V\n",
+            "the mark should not be taken for a part of the first line"
+        );
+        assert_eq!(
+            format("\u{feff}  ret\n"),
+            "\u{feff}\tret\n",
+            "the first line should be formatted as any other"
+        );
+        assert_eq!(format("\u{feff} \n"), "\u{feff}", "the mark should be kept");
     }
 
     #[test]
