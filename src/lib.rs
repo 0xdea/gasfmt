@@ -121,6 +121,11 @@ mod tests {
             "closed constants should be formatted, other quotes passed through"
         );
         assert_eq!(
+            format("\t.balign 4\n\t.byte' '\n"),
+            "\t.balign 4\n\t.byte   ' '\n",
+            "padding should not end up inside a constant"
+        );
+        assert_eq!(
             format(formatted),
             formatted,
             "a second pass should change nothing"

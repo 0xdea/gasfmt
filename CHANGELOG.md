@@ -22,6 +22,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   comment, a `;` separator, or a string literal.
 - Normalize the commas and whitespace that follow the closing quote of a character constant.
 - Keep the single-quoted strings of `.ifc` and `.ifnc` as written, instead of collapsing their whitespace.
+- Keep a character constant that immediately follows its directive (e.g., `.byte' '`) as written, instead of
+  padding it.
+- Stop a `"` or a `/*` that follows a single quote that isn't part of a closed character constant from leaving the
+  lines after it unformatted.
 
 ## [0.1.0] - 2026-11-12
 

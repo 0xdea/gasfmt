@@ -265,6 +265,9 @@ impl Parser {
 /// through unchanged (`/* */` comments, `;` separators, string literals
 /// spanning several lines, and quotes that aren't part of a closed character
 /// constant), starting in the `context` left open by the previous line.
+///
+/// The scan stops at a quote that isn't part of a closed character constant,
+/// so that nothing after it can affect the lines that follow.
 fn scan(line: &str, context: Context) -> Scan {
     let mut context = context;
     let mut verbatim = context != Context::Code;
@@ -292,16 +295,21 @@ fn scan(line: &str, context: Context) -> Scan {
                 chars.next();
                 context = Context::Code;
             }
-            (Context::Code, '\'', _) => match split_constant(chars.as_str()) {
-                Some((constant, _)) => {
-                    for _ in constant.chars() {
-                        chars.next();
-                    }
+            (Context::Code, '\'', _) => {
+                let Some(len) = constant_len(chars.as_str()) else {
+                    // Any other use of the quote (e.g., the strings of `.ifc`,
+                    // or a constant without its closing quote) can't be told
+                    // apart, and neither can what follows it on the line.
+                    return Scan {
+                        comment: None,
+                        verbatim: true,
+                        context,
+                    };
+                };
+                for _ in 0..len {
+                    chars.next();
                 }
-                // Any other use of the quote (e.g., the strings of `.ifc`, or
-                // a constant without its closing quote) can't be told apart.
-                None => verbatim = true,
-            },
+            }
             // Skip the character of an escape sequence.
             (Context::Text, '\\', _) => {
                 chars.next();
@@ -317,20 +325,22 @@ fn scan(line: &str, context: Context) -> Scan {
     }
 }
 
-/// Splits `code`, which follows an opening quote, after the rest of a
-/// character constant: a character, which may be escaped with a backslash,
-/// and the closing quote (as in `'a'` or `'\n'`).
+/// Returns the number of characters at the start of `code`, which follows an
+/// opening quote, that complete a character constant: a character, which may
+/// be escaped with a backslash, and the closing quote (as in `'a'` or
+/// `'\n'`).
 ///
 /// Returns `None` if the quote doesn't open such a constant.
-fn split_constant(code: &str) -> Option<(&str, &str)> {
+fn constant_len(code: &str) -> Option<usize> {
     let mut chars = code.chars();
-    if chars.next()? == '\\' {
+    let len = if chars.next()? == '\\' {
         chars.next()?;
-    }
-    let rest = chars.as_str().strip_prefix('\'')?;
+        3
+    } else {
+        2
+    };
 
-    // The rest is a suffix of the code, so the strip can't fail.
-    Some((code.strip_suffix(rest)?, rest))
+    (chars.next()? == '\'').then_some(len)
 }
 
 /// Returns whether `ch` can be part of a symbol name (or of a macro argument
@@ -366,10 +376,11 @@ fn split_statement(code: &str) -> (String, String) {
         return (symbol.to_owned(), tail.trim_end().to_owned());
     }
 
-    // A string literal can follow the head without whitespace, so the head
-    // also ends at a quote. A statement that starts with one (e.g., a quoted
-    // symbol name) can't be split safely, and is kept whole.
-    let head_len = match code.find(|ch: char| ch.is_whitespace() || ch == '"') {
+    // A string literal or a character constant can follow the head without
+    // whitespace, so the head also ends at a quote. A statement that starts
+    // with one (e.g., a quoted symbol name) can't be split safely, and is
+    // kept whole.
+    let head_len = match code.find(|ch: char| ch.is_whitespace() || matches!(ch, '"' | '\'')) {
         Some(0) | None => code.len(),
         Some(offset) => offset,
     };
@@ -410,9 +421,8 @@ fn normalize(operands: &str) -> String {
             // Copy the rest of a character constant. Lines with any other
             // use of the quote don't get here, since `scan` flags them.
             (Context::Code, '\'') => {
-                if let Some((constant, rest)) = split_constant(chars.as_str()) {
-                    normalized.push_str(constant);
-                    chars = rest.chars();
+                if let Some(len) = constant_len(chars.as_str()) {
+                    normalized.extend(chars.by_ref().take(len));
                 }
             }
             // Copy the character of an escape sequence.
@@ -515,6 +525,34 @@ mod tests {
                 "a quote that isn't a closed constant should keep the line as written"
             );
         }
+    }
+
+    #[test]
+    fn unclosed_quote_does_not_affect_the_following_lines() {
+        for source in [
+            "  .byte '\"",
+            "  .byte '\\\"",
+            "  mov w0, #'/*",
+            "  .ifc 'ab','c\"'",
+        ] {
+            assert_eq!(
+                parse(&format!("{source}\n  mov x0 ,x1")),
+                [
+                    Line::Verbatim(source.to_owned()),
+                    statement(true, "mov", "x0, x1", None),
+                ],
+                "nothing after the quote should open a literal or a comment"
+            );
+        }
+    }
+
+    #[test]
+    fn constant_glued_to_its_directive_is_kept_untouched() {
+        assert_eq!(
+            parse("\t.byte' ' ,'a'"),
+            [statement(true, ".byte", "' ', 'a'", None)],
+            "the directive should end where the constant starts"
+        );
     }
 
     #[test]
