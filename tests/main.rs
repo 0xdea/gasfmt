@@ -4,9 +4,9 @@
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write as _;
+    use std::io::{self, Write as _};
     use std::path::PathBuf;
-    use std::process::{Command, Output, Stdio};
+    use std::process::{Command, ExitStatus, Output, Stdio};
     use std::{env, fs, process, str};
 
     /// Absolute path to the compiled `gasfmt` binary under test.
@@ -46,6 +46,36 @@ mod tests {
 
         child
             .wait_with_output()
+            .expect("failed to wait for the binary under test")
+    }
+
+    /// Runs the binary under test with `args`, feeding it `input` on standard
+    /// input, with nobody reading its standard output and standard error,
+    /// and returns its exit status.
+    fn run_bin_unread(args: &[&str], input: &str) -> ExitStatus {
+        let (stdout_reader, stdout) = io::pipe().expect("failed to create the stdout pipe");
+        let (stderr_reader, stderr) = io::pipe().expect("failed to create the stderr pipe");
+        // The pipes are closed before the binary starts, so that every
+        // write to them fails whatever the timing.
+        drop(stdout_reader);
+        drop(stderr_reader);
+
+        let mut child = Command::new(BIN)
+            .args(args)
+            .stdin(Stdio::piped())
+            .stdout(stdout)
+            .stderr(stderr)
+            .spawn()
+            .expect("failed to spawn the binary under test");
+        child
+            .stdin
+            .take()
+            .expect("standard input should be piped")
+            .write_all(input.as_bytes())
+            .expect("failed to write to standard input");
+
+        child
+            .wait()
             .expect("failed to wait for the binary under test")
     }
 
@@ -284,7 +314,7 @@ mod tests {
 
     #[test]
     fn diff_conflicts_with_check() {
-        let output = run_bin(&["--diff", "--check"], FORMATTED);
+        let output = run_bin(&["--diff", "--check"], "");
 
         assert_eq!(
             output.status.code(),
@@ -292,6 +322,46 @@ mod tests {
             "the two options should be rejected as a usage error"
         );
         assert_eq!(stdout(&output), "", "nothing should be formatted");
+    }
+
+    #[test]
+    fn closed_pipes_fail_without_crashing() {
+        // More output than a pipe can hold, so that the writes can't succeed
+        // even if another test's child briefly inherits the reading end.
+        let source = UNFORMATTED.repeat(8192);
+
+        for args in [&[][..], &["--check"], &["--diff"]] {
+            assert_eq!(
+                run_bin_unread(args, &source).code(),
+                Some(1),
+                "{args:?} should exit with a plain failure, not a panic"
+            );
+        }
+    }
+
+    #[test]
+    fn closed_pipes_do_not_stop_files_from_being_formatted() {
+        let dirpath = temp_dir("closed-pipes");
+        let files = ["one.S", "two.S", "three.S"].map(|name| dirpath.join(name));
+        for path in &files {
+            fs::write(path, UNFORMATTED).expect("failed to write the file");
+        }
+        let args = files
+            .each_ref()
+            .map(|path| path.to_str().expect("the path should be UTF-8"));
+
+        run_bin_unread(&args, "");
+
+        for path in &files {
+            assert_eq!(
+                fs::read_to_string(path).expect("failed to read the file"),
+                FORMATTED,
+                "{} should have been rewritten",
+                path.display()
+            );
+        }
+
+        fs::remove_dir_all(&dirpath).expect("failed to remove the temporary directory");
     }
 
     #[test]
