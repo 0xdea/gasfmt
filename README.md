@@ -91,6 +91,15 @@ Only list the files that need formatting, exiting with a failure status if there
 gasfmt --check [FILES]...
 ```
 
+Show the changes that formatting would make as a unified diff, without writing them, exiting with a failure status
+if there are any:
+
+```sh
+gasfmt --diff [FILES]...
+```
+
+A change that only affects line endings or trailing whitespace shows up as a pair of lines that look identical.
+
 Without files, gasfmt formats standard input to standard output, so that it can be used as an editor filter.
 
 ## Examples
@@ -105,6 +114,12 @@ Check them, e.g., in a CI job:
 
 ```sh
 gasfmt --check *.S
+```
+
+Review the changes before applying them:
+
+```sh
+gasfmt --diff *.S
 ```
 
 Format a file to standard output without modifying it:

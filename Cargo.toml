@@ -15,6 +15,7 @@ exclude = [".cargo/*", ".github/*", ".img/*", ".gitignore", ".gitattributes", "C
 [dependencies]
 anyhow = "1.0"
 clap = { version = "4.5", features = ["derive"] }
+similar = "3.2"
 
 [profile.release]
 strip = true

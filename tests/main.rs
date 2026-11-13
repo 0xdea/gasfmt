@@ -226,6 +226,75 @@ mod tests {
     }
 
     #[test]
+    fn diff_shows_the_changes_to_standard_input() {
+        let unformatted = run_bin(&["--diff"], UNFORMATTED);
+        let formatted = run_bin(&["--diff"], FORMATTED);
+
+        assert!(
+            !unformatted.status.success(),
+            "unformatted input should fail"
+        );
+        assert_eq!(
+            stdout(&unformatted),
+            "--- <stdin>\n+++ <stdin>\n@@ -1,2 +1,3 @@\n-_main: mov x0,#0\n-  bl _exit\n\
+             +_main:\n+\tmov x0, #0\n+\tbl  _exit\n",
+            "stdout should hold the unified diff"
+        );
+        assert!(formatted.status.success(), "formatted input should pass");
+        assert_eq!(stdout(&formatted), "", "there should be nothing to show");
+    }
+
+    #[test]
+    fn diff_shows_the_changes_to_files_without_writing_them() {
+        let dirpath = temp_dir("diff");
+        let dirty = dirpath.join("dirty.S");
+        let clean = dirpath.join("clean.S");
+        fs::write(&dirty, UNFORMATTED).expect("failed to write the dirty file");
+        fs::write(&clean, FORMATTED).expect("failed to write the clean file");
+        let dirty_arg = dirty.to_str().expect("the path should be UTF-8");
+        let clean_arg = clean.to_str().expect("the path should be UTF-8");
+
+        let output = run_bin(&["--diff", clean_arg, dirty_arg], "");
+
+        assert!(!output.status.success(), "an unformatted file should fail");
+        assert_eq!(
+            stdout(&output).lines().take(3).collect::<Vec<_>>(),
+            [
+                format!("--- {dirty_arg}").as_str(),
+                format!("+++ {dirty_arg}").as_str(),
+                "@@ -1,2 +1,3 @@"
+            ],
+            "only the diff of the unformatted file should be printed"
+        );
+        assert!(
+            stderr(&output)
+                .lines()
+                .any(|line| line == "[!] 1 of 2 files need formatting"),
+            "the summary should count the unformatted file, got: {}",
+            stderr(&output)
+        );
+        assert_eq!(
+            fs::read_to_string(&dirty).expect("failed to read the dirty file"),
+            UNFORMATTED,
+            "the diff should not rewrite the file"
+        );
+
+        fs::remove_dir_all(&dirpath).expect("failed to remove the temporary directory");
+    }
+
+    #[test]
+    fn diff_conflicts_with_check() {
+        let output = run_bin(&["--diff", "--check"], FORMATTED);
+
+        assert_eq!(
+            output.status.code(),
+            Some(2),
+            "the two options should be rejected as a usage error"
+        );
+        assert_eq!(stdout(&output), "", "nothing should be formatted");
+    }
+
+    #[test]
     fn missing_file_reports_an_error() {
         let dirpath = temp_dir("missing");
         let missing = dirpath.join("missing.S");
