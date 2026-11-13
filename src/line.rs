@@ -130,7 +130,10 @@ impl Parser {
         let mut lines = Vec::new();
 
         for raw in source.lines() {
-            self.parse_line(raw, &mut lines);
+            // `lines` leaves a carriage return that isn't followed by a
+            // newline, or that comes before another one, at the end of a
+            // line, where the next pass would no longer find it.
+            self.parse_line(raw.trim_end_matches('\r'), &mut lines);
         }
         if lines.last() == Some(&Line::Blank) {
             lines.pop();

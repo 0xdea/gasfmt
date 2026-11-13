@@ -15,7 +15,8 @@ const BYTE_ORDER_MARK: char = '\u{feff}';
 ///
 /// The output always ends with a newline, unless it's empty. Formatting is
 /// idempotent: formatting the output again returns it unchanged. A byte
-/// order mark at the start of `source` is kept in front of the output.
+/// order mark at the start of `source`, or after only whitespace, is kept
+/// in front of the output.
 ///
 /// # Examples
 ///
@@ -29,8 +30,10 @@ const BYTE_ORDER_MARK: char = '\u{feff}';
 #[must_use]
 pub fn format(source: &str) -> String {
     // The mark isn't part of the first line, which would not be recognized
-    // with it in front (e.g., as a preprocessor directive).
-    let text = source.strip_prefix(BYTE_ORDER_MARK);
+    // with it in front (e.g., as a preprocessor directive). Blank lines
+    // before it are dropped anyway, which would make it the first character
+    // for the next pass, so it's taken as such at once.
+    let text = source.trim_start().strip_prefix(BYTE_ORDER_MARK);
     let formatted = render::render(&Parser::default().parse(text.unwrap_or(source)));
 
     if text.is_some() {
@@ -184,6 +187,27 @@ mod tests {
             "the first line should be formatted as any other"
         );
         assert_eq!(format("\u{feff} \n"), "\u{feff}", "the mark should be kept");
+        assert_eq!(
+            format("\r\n \n\u{feff}#define V 7\n"),
+            "\u{feff}#define V 7\n",
+            "a mark that ends up first should not change on a second pass"
+        );
+    }
+
+    #[test]
+    fn stray_carriage_returns_are_removed_from_the_end_of_lines() {
+        let formatted = "a: /* c */\n/* d */\n";
+
+        assert_eq!(
+            format("a: /* c */\r\r\n/* d */\r"),
+            formatted,
+            "a line passed through should not keep a part of its line ending"
+        );
+        assert_eq!(
+            format(formatted),
+            formatted,
+            "a second pass should change nothing"
+        );
     }
 
     #[test]

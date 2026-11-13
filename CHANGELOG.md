@@ -37,6 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `.macro m /* c */`), instead of indenting the lines that follow as if it weren't there.
 - Keep a UTF-8 byte order mark at the start of the source in front of the first line, instead of formatting it as
   a part of that line: a `#define` there was indented, which broke the build.
+- Remove a carriage return left at the end of a line that is passed through unchanged (e.g., at the end of a
+  source without a final newline), instead of removing it only on a second run.
 - Stop crashing when the reader of standard output or standard error closes the pipe early (e.g.,
   `gasfmt --check *.S | head -1`). The run goes on quietly: all the files are still formatted or checked, and only
   output that was cut short when formatting standard input makes the exit status a failure.
