@@ -150,6 +150,15 @@ mod tests {
     }
 
     #[test]
+    fn string_comparisons_keep_their_operands() {
+        assert_eq!(
+            format("  .ifc   a  b,a b  // c\n  nop\n  .endif\n"),
+            "\t.ifc a  b,a b // c\n\tnop\n\t.endif\n",
+            "only the whitespace around the operands should change"
+        );
+    }
+
+    #[test]
     fn multiline_constructs_are_passed_through() {
         let source = "  .ascii \"a\n  b ,c\"\n  b la\\\nbel\n  mov x0,x1\n";
         let formatted = "  .ascii \"a\n  b ,c\"\n  b la\\\nbel\n\tmov x0, x1\n";

@@ -40,7 +40,8 @@ _asmMain:
 
 - Comment-only lines, assignments, and directives that don't emit data (e.g., `.balign`, `.global`) keep the
   indentation level chosen by the author, either none or one tab, because both are legitimate.
-- Operand expressions aren't reformatted beyond whitespace runs and commas (e.g., `a+b` stays as it is).
+- Operand expressions aren't reformatted beyond whitespace runs and commas (e.g., `a+b` stays as it is). The
+  operands of `.ifc` and `.ifnc` aren't reformatted at all, because their whitespace can be significant.
 - Lines holding `/* */` block comments, `;` statement separators, or a string literal that spans several lines are
   passed through unchanged. So are a line ending with a backslash and the line that continues it, except for the
   first line of a preprocessor directive.

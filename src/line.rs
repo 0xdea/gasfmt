@@ -399,6 +399,8 @@ fn skip_labels(mut code: &str) -> &str {
 }
 
 /// Splits the statement in `code` into its head and its normalized tail.
+///
+/// The operands of `.ifc` and `.ifnc` are only trimmed.
 fn split_statement(code: &str) -> (String, String) {
     let (symbol, rest) = split_symbol(code);
     if !symbol.is_empty()
@@ -420,7 +422,18 @@ fn split_statement(code: &str) -> (String, String) {
     // The length comes from `find`, so the split can't fail.
     let (head, operands) = code.split_at_checked(head_len).unwrap_or((code, ""));
 
-    (head.to_owned(), normalize(operands))
+    // Some assemblers compare the strings of these directives as written,
+    // whitespace included, so only what surrounds them is cleaned up.
+    let is_comparison = [".ifc", ".ifnc"]
+        .iter()
+        .any(|directive| head.eq_ignore_ascii_case(directive));
+    let tail = if is_comparison {
+        operands.trim().to_owned()
+    } else {
+        normalize(operands)
+    };
+
+    (head.to_owned(), tail)
 }
 
 /// Normalizes the whitespace of `operands`: runs are collapsed into a single
@@ -646,6 +659,22 @@ mod tests {
                 statement(true, "mov", "x0, x1", None),
             ],
             "a block comment should still continue on the lines that follow"
+        );
+    }
+
+    #[test]
+    fn string_comparison_operands_are_kept_untouched() {
+        assert_eq!(
+            parse("  .ifc   a  b ,a b  // c\nlab: .IFNC \\x  y,z"),
+            [
+                statement(true, ".ifc", "a  b ,a b", Some("// c")),
+                Line::Label {
+                    name: "lab".to_owned(),
+                    comment: None,
+                },
+                statement(true, ".IFNC", "\\x  y,z", None),
+            ],
+            "whitespace inside the compared strings should not be normalized"
         );
     }
 
