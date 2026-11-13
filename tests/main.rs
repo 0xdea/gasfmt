@@ -6,7 +6,7 @@
 mod tests {
     use std::io::{self, Write as _};
     use std::path::PathBuf;
-    use std::process::{Command, ExitStatus, Output, Stdio};
+    use std::process::{Command, Output, Stdio};
     use std::{env, fs, process, str};
 
     /// Absolute path to the compiled `gasfmt` binary under test.
@@ -30,36 +30,12 @@ mod tests {
     /// Runs the binary under test with `args`, feeding it `input` on standard
     /// input, and returns its output.
     fn run_bin(args: &[&str], input: &str) -> Output {
-        let mut child = Command::new(BIN)
-            .args(args)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .expect("failed to spawn the binary under test");
-        child
-            .stdin
-            .take()
-            .expect("standard input should be piped")
-            .write_all(input.as_bytes())
-            .expect("failed to write to standard input");
-
-        child
-            .wait_with_output()
-            .expect("failed to wait for the binary under test")
+        run_bin_with(args, input, Stdio::piped(), Stdio::piped())
     }
 
     /// Runs the binary under test with `args`, feeding it `input` on standard
-    /// input, with nobody reading its standard output and standard error,
-    /// and returns its exit status.
-    fn run_bin_unread(args: &[&str], input: &str) -> ExitStatus {
-        let (stdout_reader, stdout) = io::pipe().expect("failed to create the stdout pipe");
-        let (stderr_reader, stderr) = io::pipe().expect("failed to create the stderr pipe");
-        // The pipes are closed before the binary starts, so that every
-        // write to them fails whatever the timing.
-        drop(stdout_reader);
-        drop(stderr_reader);
-
+    /// input, with the given `stdout` and `stderr`, and returns its output.
+    fn run_bin_with(args: &[&str], input: &str, stdout: Stdio, stderr: Stdio) -> Output {
         let mut child = Command::new(BIN)
             .args(args)
             .stdin(Stdio::piped())
@@ -67,16 +43,27 @@ mod tests {
             .stderr(stderr)
             .spawn()
             .expect("failed to spawn the binary under test");
-        child
+        // The binary may exit without reading its input: that shows in its
+        // output, so a failure to write here isn't one of the test.
+        _ = child
             .stdin
             .take()
             .expect("standard input should be piped")
-            .write_all(input.as_bytes())
-            .expect("failed to write to standard input");
+            .write_all(input.as_bytes());
 
         child
-            .wait()
+            .wait_with_output()
             .expect("failed to wait for the binary under test")
+    }
+
+    /// Returns a pipe that nobody reads, so that every write to it fails.
+    fn closed_pipe() -> Stdio {
+        // The reading end is closed before the binary starts, so that the
+        // outcome doesn't depend on timing.
+        let (reader, writer) = io::pipe().expect("failed to create the pipe");
+        drop(reader);
+
+        writer.into()
     }
 
     /// Returns the standard output of `output` as UTF-8 text.
@@ -331,12 +318,51 @@ mod tests {
         let source = UNFORMATTED.repeat(8192);
 
         for args in [&[][..], &["--check"], &["--diff"]] {
+            let output = run_bin_with(args, &source, closed_pipe(), closed_pipe());
+
             assert_eq!(
-                run_bin_unread(args, &source).code(),
+                output.status.code(),
                 Some(1),
                 "{args:?} should exit with a plain failure, not a panic"
             );
         }
+    }
+
+    #[test]
+    fn closed_standard_output_is_not_reported_as_an_error() {
+        let dirpath = temp_dir("closed-stdout");
+        let dirty = dirpath.join("dirty.S");
+        // More output than a pipe can hold: see above.
+        let source = UNFORMATTED.repeat(8192);
+        fs::write(&dirty, &source).expect("failed to write the dirty file");
+        let dirty_arg = dirty.to_str().expect("the path should be UTF-8");
+
+        let filter = run_bin_with(&[], &source, closed_pipe(), Stdio::piped());
+        let diff = run_bin_with(&["--diff", dirty_arg], "", closed_pipe(), Stdio::piped());
+
+        for output in [&filter, &diff] {
+            assert_eq!(
+                output.status.code(),
+                Some(1),
+                "output that was cut short should fail"
+            );
+            assert!(
+                !stderr(output)
+                    .lines()
+                    .any(|line| line.starts_with("[!] Error")),
+                "a reader that leaves early should not be an error, got: {}",
+                stderr(output)
+            );
+        }
+        assert!(
+            stderr(&diff)
+                .lines()
+                .any(|line| line == "[!] 1 of 1 files need formatting"),
+            "the summary should still be printed, got: {}",
+            stderr(&diff)
+        );
+
+        fs::remove_dir_all(&dirpath).expect("failed to remove the temporary directory");
     }
 
     #[test]
@@ -350,8 +376,13 @@ mod tests {
             .each_ref()
             .map(|path| path.to_str().expect("the path should be UTF-8"));
 
-        run_bin_unread(&args, "");
+        let output = run_bin_with(&args, "", closed_pipe(), closed_pipe());
 
+        assert_eq!(
+            output.status.code(),
+            Some(0),
+            "formatting should succeed even if the paths can't be listed"
+        );
         for path in &files {
             assert_eq!(
                 fs::read_to_string(path).expect("failed to read the file"),

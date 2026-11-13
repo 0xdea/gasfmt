@@ -79,10 +79,7 @@ fn main() -> ExitCode {
         Ok(true) => ExitCode::SUCCESS,
         Ok(false) => ExitCode::FAILURE,
         Err(err) => {
-            // A reader that leaves early (e.g., `head`) isn't worth a message.
-            if !is_broken_pipe(&err) {
-                report!("[!] Error: {err:#}");
-            }
+            report!("[!] Error: {err:#}");
             ExitCode::FAILURE
         }
     }
@@ -92,12 +89,12 @@ fn main() -> ExitCode {
 /// reports whether it needs formatting or shows the changes.
 ///
 /// Returns `false` if nothing was to be written and the input needs
-/// formatting.
+/// formatting, or if the reader of standard output left early.
 ///
 /// # Errors
 ///
 /// Returns an error if standard input can't be read as UTF-8 text, or if
-/// standard output can't be written.
+/// standard output can't be written for any other reason.
 fn format_stdin(mode: Mode) -> anyhow::Result<bool> {
     let mut source = String::new();
     io::stdin()
@@ -111,12 +108,16 @@ fn format_stdin(mode: Mode) -> anyhow::Result<bool> {
     }
 
     let mut stdout = io::stdout().lock();
-    match mode {
+    let written = match mode {
         Mode::Write => stdout.write_all(formatted.as_bytes()),
         Mode::Diff if needs_formatting => write_diff(stdout, "<stdin>", &source, &formatted),
         Mode::Check | Mode::Diff => Ok(()),
+    };
+    // The output was cut short, which is a failure, but not one to report.
+    if is_closed_pipe(&written) {
+        return Ok(false);
     }
-    .context("failed to write standard output")?;
+    written.context("failed to write standard output")?;
 
     Ok(mode == Mode::Write || !needs_formatting)
 }
@@ -134,12 +135,12 @@ fn format_stdin(mode: Mode) -> anyhow::Result<bool> {
 /// # Errors
 ///
 /// Returns an error if a file can't be read as UTF-8 text or written. Files
-/// before it have already been processed. Also returns an error if standard
-/// output can't be written: at once when only reporting or showing the
-/// changes, after formatting all the files otherwise.
+/// before it have already been processed. Also returns an error, after going
+/// through all the files, if standard output can't be written, unless its
+/// reader just left early.
 fn format_files(files: &[PathBuf], mode: Mode) -> anyhow::Result<bool> {
     let mut stdout = io::stdout().lock();
-    let mut listing = Ok(());
+    let mut written = Ok(());
     let mut changed = 0_usize;
 
     for path in files {
@@ -150,22 +151,20 @@ fn format_files(files: &[PathBuf], mode: Mode) -> anyhow::Result<bool> {
             continue;
         }
 
-        // A reader that closes the pipe early (e.g., `head`) makes the write
-        // fail, which `println!` would turn into a panic.
         if mode == Mode::Write {
             fs::write(path, &formatted)
                 .with_context(|| format!("failed to write {}", path.display()))?;
-            // The list of paths is only information, so a failure to print
-            // it doesn't stop the remaining files from being formatted.
-            if listing.is_ok() {
-                listing = writeln!(stdout, "{}", path.display());
-            }
-        } else if mode == Mode::Diff {
-            let name = path.display().to_string();
-            write_diff(&mut stdout, &name, &source, &formatted)
-                .context("failed to write standard output")?;
-        } else {
-            writeln!(stdout, "{}", path.display()).context("failed to write standard output")?;
+        }
+        // A failure to print (e.g., `head` closing the pipe early), which
+        // `println!` would turn into a panic, ends the printing, but neither
+        // the formatting nor the count of the remaining files.
+        if written.is_ok() {
+            written = if mode == Mode::Diff {
+                let name = path.display().to_string();
+                write_diff(&mut stdout, &name, &source, &formatted)
+            } else {
+                writeln!(stdout, "{}", path.display())
+            };
         }
         changed = changed.saturating_add(1);
     }
@@ -179,18 +178,20 @@ fn format_files(files: &[PathBuf], mode: Mode) -> anyhow::Result<bool> {
         report!("[+] All {total} files are formatted");
     }
 
-    listing.context("failed to write standard output")?;
+    // What was printed is only information: the exit status tells the rest.
+    if !is_closed_pipe(&written) {
+        written.context("failed to write standard output")?;
+    }
 
     Ok(mode == Mode::Write || changed == 0)
 }
 
-/// Returns whether `err` was caused by a write to a closed pipe.
-fn is_broken_pipe(err: &anyhow::Error) -> bool {
-    err.chain().any(|cause| {
-        cause
-            .downcast_ref::<io::Error>()
-            .is_some_and(|io_err| io_err.kind() == io::ErrorKind::BrokenPipe)
-    })
+/// Returns whether `written`, the result of a write, failed because the
+/// reader closed the pipe early (e.g., `head`), which isn't worth reporting.
+fn is_closed_pipe(written: &io::Result<()>) -> bool {
+    written
+        .as_ref()
+        .is_err_and(|err| err.kind() == io::ErrorKind::BrokenPipe)
 }
 
 /// Writes to `output` the unified diff that turns `source` into `formatted`,

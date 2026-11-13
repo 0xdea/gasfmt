@@ -32,8 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stop a `"` or a `/*` that follows a single quote that isn't part of a closed character constant from leaving the
   lines after it unformatted.
 - Stop crashing when the reader of standard output or standard error closes the pipe early (e.g.,
-  `gasfmt --check *.S | head -1`): the run now ends quietly with a failure exit status. When formatting in place,
-  all the files are still formatted.
+  `gasfmt --check *.S | head -1`). The run goes on quietly: all the files are still formatted or checked, and only
+  output that was cut short when formatting standard input makes the exit status a failure.
 - Pass a line where a `#` follows a label (e.g., `label: #define X 1`) through unchanged, instead of moving the
   `#` to a line of its own, where a second run would move it again as a preprocessor directive. The label now
   stays on that line, which keeps its indentation and its comment as written.
