@@ -39,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a part of that line: a `#define` there was indented, which broke the build.
 - Remove a carriage return left at the end of a line that is passed through unchanged (e.g., at the end of a
   source without a final newline), instead of removing it only on a second run.
+- Recognize labels and assignments whose names hold characters outside ASCII or the macro escapes `\@` and
+  `\()` (e.g., `.L\@: ret`), instead of leaving them on the line of their code as if they were instructions.
 - Stop crashing when the reader of standard output or standard error closes the pipe early (e.g.,
   `gasfmt --check *.S | head -1`). The run goes on quietly: all the files are still formatted or checked, and only
   output that was cut short when formatting standard input makes the exit status a failure.

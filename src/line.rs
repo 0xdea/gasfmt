@@ -384,16 +384,41 @@ fn constant_len(code: &str) -> Option<usize> {
 }
 
 /// Returns whether `ch` can be part of a symbol name (or of a macro argument
-/// reference, which starts with a backslash).
+/// reference, which starts with a backslash). As for the assembler, any
+/// character outside ASCII can, unless it's whitespace.
 const fn is_symbol_char(ch: char) -> bool {
-    ch.is_ascii_alphanumeric() || matches!(ch, '_' | '.' | '$' | '\\')
+    ch.is_ascii_alphanumeric()
+        || matches!(ch, '_' | '.' | '$' | '\\')
+        || (!ch.is_ascii() && !ch.is_whitespace())
 }
 
 /// Splits `code` after its leading symbol, returning the symbol and the rest.
+///
+/// The symbol can hold the macro escapes `\@` (the count of the macros
+/// expanded so far) and `\()` (the end of an argument name).
 fn split_symbol(code: &str) -> (&str, &str) {
-    let offset = code.find(|ch| !is_symbol_char(ch)).unwrap_or(code.len());
+    let mut chars = code.char_indices();
+    let mut offset = code.len();
 
-    // The offset comes from `find`, so the split can't fail.
+    while let Some((index, ch)) = chars.next() {
+        if ch == '\\' {
+            let escaped = chars.as_str();
+            if escaped.starts_with('@') {
+                chars.next();
+            } else if escaped.starts_with("()") {
+                chars.nth(1);
+            } else {
+                // A macro argument reference, made of symbol characters.
+            }
+        } else if !is_symbol_char(ch) {
+            offset = index;
+            break;
+        } else {
+            // The symbol goes on.
+        }
+    }
+
+    // The offset comes from `char_indices`, so the split can't fail.
     code.split_at_checked(offset).unwrap_or((code, ""))
 }
 
@@ -739,6 +764,39 @@ mod tests {
                 statement(true, ".text", "", None),
             ],
             "a comment or a string should not start a macro"
+        );
+    }
+
+    #[test]
+    fn label_names_can_hold_macro_escapes_and_non_ascii_characters() {
+        /// Builds the label line expected from the test.
+        fn label(name: &str) -> Line {
+            Line::Label {
+                name: name.to_owned(),
+                comment: None,
+            }
+        }
+
+        assert_eq!(
+            parse("caf\u{e9}: ret\n.L\\@: ret\n\\name\\()_end: ret\nsize\\@=1"),
+            [
+                label("caf\u{e9}"),
+                statement(true, "ret", "", None),
+                label(".L\\@"),
+                statement(true, "ret", "", None),
+                label("\\name\\()_end"),
+                statement(true, "ret", "", None),
+                statement(false, "size\\@", "= 1", None),
+            ],
+            "these names should be recognized as symbols"
+        );
+        assert_eq!(
+            parse("a@b: ret\na(): ret"),
+            [
+                statement(true, "a@b:", "ret", None),
+                statement(true, "a():", "ret", None),
+            ],
+            "the escapes should need their backslash"
         );
     }
 
