@@ -13,6 +13,7 @@ const DATA_DIRECTIVES: [&str; 31] = [
     ".fill",
     ".float",
     ".hword",
+    ".incbin",
     ".inst",
     ".int",
     ".long",
@@ -32,7 +33,6 @@ const DATA_DIRECTIVES: [&str; 31] = [
     ".word",
     ".xword",
     ".zero",
-    ".incbin",
 ];
 
 /// A classified source line.
@@ -246,7 +246,8 @@ impl Parser {
         }
 
         // A statement at the start of a line is always indented, except for
-        // assignments and non-data directives, which are kept where the author put them.
+        // assignments and non-data directives, which are kept where the
+        // author put them.
         if !code.is_empty() {
             let (head, tail) = split_statement(code);
             let indented = self.indent(&head, &tail, indented);

@@ -396,6 +396,36 @@ mod tests {
     }
 
     #[test]
+    fn file_that_is_not_utf8_reports_an_error() {
+        let dirpath = temp_dir("not-utf8");
+        let binary = dirpath.join("binary.S");
+        let content = b"  mov x0,x1\n\xff\xfe\n";
+        fs::write(&binary, content).expect("failed to write the binary file");
+        let binary_arg = binary.to_str().expect("the path should be UTF-8");
+
+        let output = run_bin(&[binary_arg], "");
+
+        assert!(
+            !output.status.success(),
+            "a file that isn't text should fail"
+        );
+        assert!(
+            stderr(&output)
+                .lines()
+                .any(|line| line.starts_with(&format!("[!] Error: failed to read {binary_arg}"))),
+            "the error should name the file, got: {}",
+            stderr(&output)
+        );
+        assert_eq!(
+            fs::read(&binary).expect("failed to read the binary file"),
+            content,
+            "the file should be left as it was"
+        );
+
+        fs::remove_dir_all(&dirpath).expect("failed to remove the temporary directory");
+    }
+
+    #[test]
     fn missing_file_reports_an_error() {
         let dirpath = temp_dir("missing");
         let missing = dirpath.join("missing.S");
