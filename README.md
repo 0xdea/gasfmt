@@ -46,6 +46,8 @@ _asmMain:
   first line of a preprocessor directive.
 - A string literal left open (e.g., by a stray `"` in a comment style that isn't recognized) makes the lines that
   follow pass through unchanged, up to the next `"`.
+- Lines holding a single quote that isn't part of a closed character constant (`'a'` or `'\n'`), such as the
+  single-quoted strings of `.ifc` or a constant without its closing quote, are passed through unchanged.
 - Preprocessor directives are moved to column 0, so nested `#if` blocks lose their indentation.
 
 ## Installing

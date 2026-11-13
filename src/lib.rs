@@ -110,6 +110,24 @@ mod tests {
     }
 
     #[test]
+    fn character_constants_are_kept_untouched() {
+        let source = "  cmp w0,#'a'// one ,two\n  .byte ',' ,' '  ,'\\n'\n  .ifc 'x  y' ,''// k\n";
+        let formatted =
+            "\tcmp   w0, #'a'       // one ,two\n\t.byte ',', ' ', '\\n'\n  .ifc 'x  y' ,''// k\n";
+
+        assert_eq!(
+            format(source),
+            formatted,
+            "closed constants should be formatted, other quotes passed through"
+        );
+        assert_eq!(
+            format(formatted),
+            formatted,
+            "a second pass should change nothing"
+        );
+    }
+
+    #[test]
     fn multiline_constructs_are_passed_through() {
         let source = "  .ascii \"a\n  b ,c\"\n  b la\\\nbel\n  mov x0,x1\n";
         let formatted = "  .ascii \"a\n  b ,c\"\n  b la\\\nbel\n\tmov x0, x1\n";

@@ -61,7 +61,7 @@ gasfmt is line-oriented by design: it never parses instructions, operands, or ex
 
 ## Invariants
 
-- **When in doubt, pass through.** A line that can't be understood safely is emitted as `Line::Verbatim` and printed exactly as written: lines holding `/* */` comments or `;` separators, lines that start or end inside a string literal, and lines ending with a backslash plus their continuation. Prefer adding a pass-through case over guessing.
+- **When in doubt, pass through.** A line that can't be understood safely is emitted as `Line::Verbatim` and printed exactly as written: lines holding `/* */` comments or `;` separators, lines that start or end inside a string literal, lines ending with a backslash plus their continuation, and lines holding a single quote that isn't part of a closed character constant (`'a'` or `'\n'`; see `split_constant`, shared by `scan` and `normalize` so that they can't disagree). Prefer adding a pass-through case over guessing.
 - **Comments and string literals are never modified.** Whitespace inside quotes must survive `scan`, `split_statement`, and `normalize`.
 - **Formatting is idempotent.** `format(format(x)) == format(x)` must hold for any input, including verbatim lines. Parser state must depend only on things formatting doesn't change (quotes, backslashes, comment markers).
 - **Preprocessor directives** (a line starting with `#` in plain code) go to column 0; an open string is reset at the end of a directive so a stray quote there can't affect later lines.
@@ -83,4 +83,4 @@ Release builds use LTO, opt-level 3, `codegen-units = 1`, `panic = "abort"`, and
 
 ## Changelog
 
-`CHANGELOG.md` follows Keep a Changelog. Version 0.1.0 has not been published yet, so fixes to unreleased behavior don't need their own entries.
+`CHANGELOG.md` follows Keep a Changelog. The crate is published on crates.io, so every user-visible change, including a change to the formatted output, gets an entry under `[Unreleased]`.

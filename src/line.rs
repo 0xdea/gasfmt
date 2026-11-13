@@ -262,16 +262,16 @@ impl Parser {
 }
 
 /// Scans `line` for a `//` comment and for constructs that are passed
-/// through unchanged (`/* */` comments, `;` separators, and string literals
-/// spanning several lines), starting in the `context` left open by the
-/// previous line.
+/// through unchanged (`/* */` comments, `;` separators, string literals
+/// spanning several lines, and quotes that aren't part of a closed character
+/// constant), starting in the `context` left open by the previous line.
 fn scan(line: &str, context: Context) -> Scan {
     let mut context = context;
     let mut verbatim = context != Context::Code;
-    let mut chars = line.char_indices().peekable();
+    let mut chars = line.char_indices();
 
     while let Some((offset, ch)) = chars.next() {
-        let next = chars.peek().map(|&(_, next)| next);
+        let next = chars.as_str().chars().next();
         match (context, ch, next) {
             (Context::Code, '/', Some('/')) => {
                 return Scan {
@@ -292,13 +292,18 @@ fn scan(line: &str, context: Context) -> Scan {
                 chars.next();
                 context = Context::Code;
             }
-            // Skip the escaped character of a character constant.
-            (Context::Code, '\'', Some('\\')) => {
-                chars.next();
-                chars.next();
-            }
-            // Skip the character of a character constant or escape sequence.
-            (Context::Code, '\'', _) | (Context::Text, '\\', _) => {
+            (Context::Code, '\'', _) => match split_constant(chars.as_str()) {
+                Some((constant, _)) => {
+                    for _ in constant.chars() {
+                        chars.next();
+                    }
+                }
+                // Any other use of the quote (e.g., the strings of `.ifc`, or
+                // a constant without its closing quote) can't be told apart.
+                None => verbatim = true,
+            },
+            // Skip the character of an escape sequence.
+            (Context::Text, '\\', _) => {
                 chars.next();
             }
             (Context::Block | Context::Code | Context::Text, ..) => {}
@@ -310,6 +315,22 @@ fn scan(line: &str, context: Context) -> Scan {
         verbatim: verbatim || context != Context::Code,
         context,
     }
+}
+
+/// Splits `code`, which follows an opening quote, after the rest of a
+/// character constant: a character, which may be escaped with a backslash,
+/// and the closing quote (as in `'a'` or `'\n'`).
+///
+/// Returns `None` if the quote doesn't open such a constant.
+fn split_constant(code: &str) -> Option<(&str, &str)> {
+    let mut chars = code.chars();
+    if chars.next()? == '\\' {
+        chars.next()?;
+    }
+    let rest = chars.as_str().strip_prefix('\'')?;
+
+    // The rest is a suffix of the code, so the strip can't fail.
+    Some((code.strip_suffix(rest)?, rest))
 }
 
 /// Returns whether `ch` can be part of a symbol name (or of a macro argument
@@ -360,7 +381,7 @@ fn split_statement(code: &str) -> (String, String) {
 
 /// Normalizes the whitespace of `operands`: runs are collapsed into a single
 /// space, and commas are followed, but not preceded, by one. String literals
-/// are left untouched.
+/// and character constants are left untouched.
 fn normalize(operands: &str) -> String {
     let mut normalized = String::with_capacity(operands.len());
     let mut context = Context::Code;
@@ -386,13 +407,12 @@ fn normalize(operands: &str) -> String {
         match (context, ch) {
             (Context::Code, '"') => context = Context::Text,
             (Context::Text, '"') => context = Context::Code,
-            // Copy the character of a character constant, which may be
-            // escaped.
+            // Copy the rest of a character constant. Lines with any other
+            // use of the quote don't get here, since `scan` flags them.
             (Context::Code, '\'') => {
-                let constant = chars.next();
-                normalized.extend(constant);
-                if constant == Some('\\') {
-                    normalized.extend(chars.next());
+                if let Some((constant, rest)) = split_constant(chars.as_str()) {
+                    normalized.push_str(constant);
+                    chars = rest.chars();
                 }
             }
             // Copy the character of an escape sequence.
@@ -439,6 +459,62 @@ mod tests {
             r#""a ,b  \" ,c", ','"#,
             "whitespace and commas in literals should be kept as written"
         );
+    }
+
+    #[test]
+    fn normalize_handles_the_closing_quote_of_character_constants() {
+        assert_eq!(
+            normalize("',',1 , 'a' , 2,'b',3 ,'\\'' ,4"),
+            "',', 1, 'a', 2, 'b', 3, '\\'', 4",
+            "separators after a closing quote should be normalized"
+        );
+        assert_eq!(
+            normalize(r#"'"' ,"a  ,b""#),
+            r#"'"', "a  ,b""#,
+            "a literal after a quote constant should be kept as written"
+        );
+    }
+
+    #[test]
+    fn code_after_closing_quote_is_recognized() {
+        assert_eq!(
+            parse("\tmov w0,#'a'// first ,one\n\tmov w0,#'\\''// second"),
+            [
+                statement(true, "mov", "w0, #'a'", Some("// first ,one")),
+                statement(true, "mov", "w0, #'\\''", Some("// second")),
+            ],
+            "the closing quote should not hide the comment sigil"
+        );
+        assert_eq!(
+            parse("\t.ascii 'x'\"a  ,b\"\n  ret"),
+            [
+                statement(true, ".ascii", "'x'\"a  ,b\"", None),
+                statement(true, "ret", "", None),
+            ],
+            "the closing quote should not hide the start of a literal"
+        );
+        assert_eq!(
+            parse("  mov w0,#'a';nop  ,x"),
+            [Line::Verbatim("  mov w0,#'a';nop  ,x".to_owned())],
+            "the closing quote should not hide the separator"
+        );
+    }
+
+    #[test]
+    fn unclosed_quote_is_passed_through() {
+        for source in [
+            "  .ifc '\\arg',''// a ,b  c",
+            "  .ifc 'x  y','x  y'",
+            "  cmp w0,#'\\ch'// q ,r",
+            "  .byte 'a,1 , 'b , 2",
+            "  .byte ' ",
+        ] {
+            assert_eq!(
+                parse(source),
+                [Line::Verbatim(source.to_owned())],
+                "a quote that isn't a closed constant should keep the line as written"
+            );
+        }
     }
 
     #[test]

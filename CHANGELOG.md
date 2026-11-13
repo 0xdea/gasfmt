@@ -7,9 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Pass lines holding a single quote that isn't part of a closed character constant (`'a'` or `'\n'`) through
+  unchanged, instead of formatting them. This includes constants written without their closing quote.
+
 ### Removed
 
 - Remove the screenshot from `README.md`.
+
+### Fixed
+
+- Recognize what immediately follows the closing quote of a character constant: a `//` comment, a `/* */`
+  comment, a `;` separator, or a string literal.
+- Normalize the commas and whitespace that follow the closing quote of a character constant.
+- Keep the single-quoted strings of `.ifc` and `.ifnc` as written, instead of collapsing their whitespace.
 
 ## [0.1.0] - 2026-11-12
 
