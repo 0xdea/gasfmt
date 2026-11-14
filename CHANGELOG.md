@@ -26,7 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Recognize what immediately follows the closing quote of a character constant: a `//` comment, a `/* */`
   comment, a `;` separator, or a string literal.
 - Normalize the commas and whitespace that follow the closing quote of a character constant.
-- Keep the single-quoted strings of `.ifc` and `.ifnc` as written, instead of collapsing their whitespace.
 - Keep the operands of `.ifc` and `.ifnc` as written, quoted or not, instead of normalizing their commas and
   whitespace: clang compares them whitespace included, so `.ifc a  b,a b` took the other branch once formatted.
 - Stop the padding that aligns the operands from ending up inside a character constant that immediately follows

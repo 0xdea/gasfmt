@@ -43,13 +43,20 @@ mod tests {
             .stderr(stderr)
             .spawn()
             .expect("failed to spawn the binary under test");
-        // The binary may exit without reading its input: that shows in its
-        // output, so a failure to write here isn't one of the test.
-        _ = child
+        let written = child
             .stdin
             .take()
             .expect("standard input should be piped")
             .write_all(input.as_bytes());
+        // The binary may exit without reading its input: that shows in its
+        // output, so only another failure to write is one of the test.
+        if let Err(err) = written {
+            assert_eq!(
+                err.kind(),
+                io::ErrorKind::BrokenPipe,
+                "failed to write to standard input: {err}"
+            );
+        }
 
         child
             .wait_with_output()

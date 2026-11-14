@@ -9,6 +9,18 @@ use anyhow::Context as _;
 use clap::Parser;
 use similar::TextDiff;
 
+/// Prints a line to standard error, as `eprintln!` does, but without
+/// panicking if that fails (e.g., on a closed pipe).
+macro_rules! report {
+    ($($arg:tt)*) => {{
+        #[expect(
+            clippy::let_underscore_must_use,
+            reason = "a failure to write to standard error can't be reported anywhere"
+        )]
+        let _ = writeln!(io::stderr(), $($arg)*);
+    }};
+}
+
 /// Binary name.
 const PROGRAM: &str = env!("CARGO_BIN_NAME");
 /// Package version.
@@ -41,18 +53,6 @@ enum Mode {
     Check,
     /// Only show the changes that formatting would make.
     Diff,
-}
-
-/// Prints a line to standard error, as `eprintln!` does, but without
-/// panicking if that fails (e.g., on a closed pipe).
-macro_rules! report {
-    ($($arg:tt)*) => {{
-        #[expect(
-            clippy::let_underscore_must_use,
-            reason = "a failure to write to standard error can't be reported anywhere"
-        )]
-        let _ = writeln!(io::stderr(), $($arg)*);
-    }};
 }
 
 fn main() -> ExitCode {

@@ -19,7 +19,7 @@ A formatter for GNU assembler (GAS) sources, targeting the ARM64 dialect accepte
 - Instructions and directives that emit data (e.g., `.byte`, `.ascii`) are indented with one tab.
 - In a block of consecutive statements, operands are aligned in a column with spaces, and so are assignments at
   their `=` sign. Trailing `//` comments are aligned one space past the longest statement of the block. A label, a
-  blank line, or a preprocessor directive ends the block.
+  blank line, a preprocessor directive, or a line that is passed through unchanged ends the block.
 - Operands are separated by a comma followed by one space, and other runs of whitespace are reduced to one space.
 - `.macro` definitions are placed at column 0, bodies included.
 - Preprocessor directives are placed at column 0.
@@ -69,6 +69,10 @@ _asmMain:
   follows such a quote isn't examined, so a string literal or a `/* */` comment that starts there and continues on
   the next lines isn't recognized.
 - A line where a `#` follows a label (e.g., `label: #define X 1`) is passed through unchanged.
+- A `.macro` or an `.endm` that follows a `/* */` comment on its line (e.g., `/* end */ .endm`) isn't recognized,
+  so the lines after it are indented as if it weren't there.
+- Whitespace outside ASCII (e.g., a non-breaking space) is handled like any other whitespace, although the
+  assembler takes it as part of a name.
 - Preprocessor directives are moved to column 0, so nested `#if` blocks lose their indentation.
 
 ## Installing

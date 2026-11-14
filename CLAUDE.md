@@ -42,8 +42,10 @@ Single Rust crate (edition 2024) that exposes a binary and a one-function librar
 
 ```
 source text
+  → format()                 split a leading byte order mark off        (src/lib.rs)
   → line::Parser::parse()    classify every source line into a `Line`   (src/line.rs)
   → render::render()         print the lines back, aligning each block  (src/render.rs)
+  → format()                 put the byte order mark back in front      (src/lib.rs)
 ```
 
 gasfmt is line-oriented by design: it never parses instructions, operands, or expressions. It only decides what kind of line each one is and normalizes whitespace.
