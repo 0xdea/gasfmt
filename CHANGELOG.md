@@ -37,8 +37,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `.macro m /* c */`), instead of indenting the lines that follow as if it weren't there.
 - Keep a UTF-8 byte order mark at the start of the source in front of the first line, instead of formatting it as
   a part of that line: a `#define` there was indented, which broke the build.
-- Remove a carriage return left at the end of a line that is passed through unchanged (e.g., at the end of a
-  source without a final newline), instead of removing it only on a second run.
+- Treat a carriage return that isn't followed by a newline as a line ending, as the C preprocessor does, instead
+  of as whitespace: the lines of a source with CR-only line endings were merged, and a carriage return at the end
+  of a line that is passed through unchanged was removed only on a second run.
 - Recognize labels and assignments whose names hold characters outside ASCII or the macro escapes `\@` and
   `\()` (e.g., `.L\@: ret`), instead of leaving them on the line of their code as if they were instructions.
 - Stop crashing when the reader of standard output or standard error closes the pipe early (e.g.,

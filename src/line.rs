@@ -129,11 +129,11 @@ impl Parser {
     pub fn parse(mut self, source: &str) -> Vec<Line> {
         let mut lines = Vec::new();
 
+        // A carriage return ends a line even without a newline after it, as
+        // it does for the preprocessor.
+        let source = source.replace("\r\n", "\n").replace('\r', "\n");
         for raw in source.lines() {
-            // `lines` leaves a carriage return that isn't followed by a
-            // newline, or that comes before another one, at the end of a
-            // line, where the next pass would no longer find it.
-            self.parse_line(raw.trim_end_matches('\r'), &mut lines);
+            self.parse_line(raw, &mut lines);
         }
         if lines.last() == Some(&Line::Blank) {
             lines.pop();

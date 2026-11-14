@@ -195,9 +195,14 @@ mod tests {
     }
 
     #[test]
-    fn stray_carriage_returns_are_removed_from_the_end_of_lines() {
-        let formatted = "a: /* c */\n/* d */\n";
+    fn lone_carriage_returns_end_lines() {
+        assert_eq!(
+            format("_f:\r  mov x0,x1\r  ret\r"),
+            "_f:\n\tmov x0, x1\n\tret\n",
+            "lines that end with a carriage return should not be merged"
+        );
 
+        let formatted = "a: /* c */\n\n/* d */\n";
         assert_eq!(
             format("a: /* c */\r\r\n/* d */\r"),
             formatted,

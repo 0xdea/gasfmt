@@ -23,8 +23,8 @@ A formatter for GNU assembler (GAS) sources, targeting the ARM64 dialect accepte
 - Operands are separated by a comma followed by one space, and other runs of whitespace are reduced to one space.
 - `.macro` definitions are placed at column 0, bodies included.
 - Preprocessor directives are placed at column 0.
-- Trailing whitespace is removed, CRLF line endings are converted to LF, consecutive blank lines are reduced to one,
-  and the output ends with a single newline.
+- Trailing whitespace is removed, CRLF and CR line endings are converted to LF, consecutive blank lines are reduced
+  to one, and the output ends with a single newline.
 - Comments, string literals, and character constants are never modified.
 - Formatting is idempotent: formatting the output again changes nothing.
 - Files are formatted in place, only checked, or shown as a unified diff. Standard input is formatted to standard
