@@ -147,10 +147,12 @@ fn format_files(files: &[PathBuf], mode: Mode) -> anyhow::Result<bool> {
             continue;
         }
 
+        // If the write fails halfway, the file may be left truncated.
         if mode == Mode::Write {
             fs::write(path, &formatted)
                 .with_context(|| format!("failed to write {}", path.display()))?;
         }
+
         // A failure to print (e.g., `head` closing the pipe early) is an
         // error, which `println!` would turn into a panic.
         if mode == Mode::Diff {
@@ -164,6 +166,8 @@ fn format_files(files: &[PathBuf], mode: Mode) -> anyhow::Result<bool> {
     }
     stdout.flush().context("failed to write standard output")?;
 
+    // A file listed twice is formatted on the first pass and skipped on
+    // the second, but total counts it twice.
     let total = files.len();
     if mode == Mode::Write {
         report!("[+] Formatted {changed} of {total} files");

@@ -130,11 +130,12 @@ impl Parser {
         let mut lines = Vec::new();
 
         // A carriage return ends a line even without a newline after it, as
-        // it does for the preprocessor.
+        // it does for the preprocessor. The output is only normalized to LF.
         let source = source.replace("\r\n", "\n").replace('\r', "\n");
         for raw in source.lines() {
             self.parse_line(raw, &mut lines);
         }
+        // Remove any trailing blank line that `parse_line` can't remove.
         if lines.last() == Some(&Line::Blank) {
             lines.pop();
         }
@@ -149,6 +150,7 @@ impl Parser {
 
         let previous = self.continuation;
         let started = self.context;
+
         let is_preprocessor = match previous {
             Continuation::None => started == Context::Code && trimmed.starts_with('#'),
             Continuation::Preprocessor => true,
@@ -193,7 +195,6 @@ impl Parser {
         } else {
             Continuation::None
         };
-
         // Joining a continued line with the next one can't be done safely,
         // since the backslash may even split a symbol.
         if continues || previous == Continuation::Statement || scan.verbatim {
@@ -247,8 +248,10 @@ impl Parser {
                 tail,
                 comment,
             }));
+        // Only a comment.
         } else if let Some(text) = comment {
             lines.push(Line::Comment { indented, text });
+        // Blank line after a line that isn't blank.
         } else if lines.last().is_some_and(|last| *last != Line::Blank) {
             lines.push(Line::Blank);
         } else {
