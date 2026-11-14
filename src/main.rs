@@ -100,6 +100,7 @@ fn format_stdin(mode: Mode) -> anyhow::Result<bool> {
     io::stdin()
         .read_to_string(&mut source)
         .context("failed to read standard input")?;
+
     let formatted = gasfmt::format(&source);
 
     let needs_formatting = formatted != source;
@@ -110,10 +111,11 @@ fn format_stdin(mode: Mode) -> anyhow::Result<bool> {
     let mut stdout = io::stdout().lock();
     match mode {
         Mode::Write => stdout.write_all(formatted.as_bytes()),
-        Mode::Diff if needs_formatting => write_diff(stdout, "<stdin>", &source, &formatted),
+        Mode::Diff if needs_formatting => write_diff(&mut stdout, "<stdin>", &source, &formatted),
         Mode::Check | Mode::Diff => Ok(()),
     }
     .context("failed to write standard output")?;
+    stdout.flush().context("failed to write standard output")?;
 
     Ok(mode == Mode::Write || !needs_formatting)
 }
@@ -160,6 +162,7 @@ fn format_files(files: &[PathBuf], mode: Mode) -> anyhow::Result<bool> {
         .context("failed to write standard output")?;
         changed = changed.saturating_add(1);
     }
+    stdout.flush().context("failed to write standard output")?;
 
     let total = files.len();
     if mode == Mode::Write {
