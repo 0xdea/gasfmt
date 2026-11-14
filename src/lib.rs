@@ -13,10 +13,10 @@ const BYTE_ORDER_MARK: char = '\u{feff}';
 
 /// Formats the assembly `source` text.
 ///
-/// The output always ends with a newline, unless it's empty. Formatting is
-/// idempotent: formatting the output again returns it unchanged. A byte
-/// order mark at the start of `source`, or after only whitespace, is kept
-/// in front of the output.
+/// The output always ends with a newline, unless it's empty or it holds
+/// only a byte order mark. Formatting is idempotent: formatting the output
+/// again returns it unchanged. A byte order mark at the start of `source`,
+/// or after only blank lines, is kept in front of the output.
 ///
 /// # Examples
 ///
@@ -30,10 +30,8 @@ const BYTE_ORDER_MARK: char = '\u{feff}';
 #[must_use]
 pub fn format(source: &str) -> String {
     // The mark isn't part of the first line, which would not be recognized
-    // with it in front (e.g., as a preprocessor directive). Blank lines
-    // before it are dropped anyway, which would make it the first character
-    // for the next pass, so it's taken as such at once.
-    let text = source.trim_start().strip_prefix(BYTE_ORDER_MARK);
+    // with it in front (e.g., as a preprocessor directive).
+    let text = strip_byte_order_mark(source);
     let formatted = render::render(&Parser::default().parse(text.unwrap_or(source)));
 
     if text.is_some() {
@@ -41,6 +39,20 @@ pub fn format(source: &str) -> String {
     } else {
         formatted
     }
+}
+
+/// Splits the leading byte order mark off `source`, returning what follows
+/// it, or `None` if there isn't one.
+///
+/// Blank lines before the mark are dropped by formatting, which would make
+/// it the first character for the next pass, so they're skipped here.
+/// Indentation in front of it makes it a part of its line instead.
+fn strip_byte_order_mark(source: &str) -> Option<&str> {
+    let (blank, text) = source.split_once(BYTE_ORDER_MARK)?;
+    let is_leading = blank.chars().all(char::is_whitespace)
+        && (blank.is_empty() || blank.ends_with(['\n', '\r']));
+
+    is_leading.then_some(text)
 }
 
 #[cfg(test)]
@@ -191,6 +203,18 @@ mod tests {
             format("\r\n \n\u{feff}#define V 7\n"),
             "\u{feff}#define V 7\n",
             "a mark that ends up first should not change on a second pass"
+        );
+
+        let formatted = "\t\u{feff}x: =1\n";
+        assert_eq!(
+            format("\n  \u{feff}x:  =1\n"),
+            formatted,
+            "indentation in front of the mark should make it a part of the line"
+        );
+        assert_eq!(
+            format(formatted),
+            formatted,
+            "a second pass should change nothing"
         );
     }
 

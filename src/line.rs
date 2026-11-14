@@ -1,5 +1,7 @@
 //! Classification of assembly source lines.
 
+use crate::BYTE_ORDER_MARK;
+
 /// Directives that emit data, which are indented like instructions.
 const DATA_DIRECTIVES: [&str; 31] = [
     ".2byte",
@@ -387,10 +389,13 @@ fn constant_len(code: &str) -> Option<usize> {
 /// Returns whether `ch` can be part of a symbol name (or of a macro argument
 /// reference, which starts with a backslash). As for the assembler, any
 /// character outside ASCII can, unless it's whitespace.
+///
+/// A byte order mark can't either: a name that starts with one could end up
+/// at the start of the output, where the next pass would split them.
 const fn is_symbol_char(ch: char) -> bool {
     ch.is_ascii_alphanumeric()
         || matches!(ch, '_' | '.' | '$' | '\\')
-        || (!ch.is_ascii() && !ch.is_whitespace())
+        || (!ch.is_ascii() && !ch.is_whitespace() && ch != BYTE_ORDER_MARK)
 }
 
 /// Splits `code` after its leading symbol, returning the symbol and the rest.
