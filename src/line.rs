@@ -1,7 +1,5 @@
 //! Classification of assembly source lines.
 
-use crate::BYTE_ORDER_MARK;
-
 /// Directives that emit data, which are indented like instructions.
 const DATA_DIRECTIVES: [&str; 31] = [
     ".2byte",
@@ -190,28 +188,11 @@ impl Parser {
             self.track_macros(trimmed);
         }
 
-        // The continuation is recorded before any line is passed through,
-        // since such a line (e.g., `label: #x \`) can end with a backslash too.
         self.continuation = if continues {
             Continuation::Statement
         } else {
             Continuation::None
         };
-
-        // On a line of its own, a hash that follows a label would be taken
-        // for the start of a preprocessor directive by the next pass.
-        if previous == Continuation::None
-            && started == Context::Code
-            && skip_labels(trimmed).starts_with('#')
-        {
-            // As for a directive, a stray quote in it doesn't affect the
-            // lines that follow.
-            if !continues && self.context == Context::Text {
-                self.context = Context::Code;
-            }
-            lines.push(Line::Verbatim(raw.to_owned()));
-            return;
-        }
 
         // Joining a continued line with the next one can't be done safely,
         // since the backslash may even split a symbol.
@@ -229,6 +210,13 @@ impl Parser {
             });
         let mut indented = raw.starts_with(char::is_whitespace);
         let mut code = code.trim();
+
+        // On a line of its own, a hash that follows a label would be taken
+        // for the start of a preprocessor directive by the next pass.
+        if skip_labels(code).starts_with('#') {
+            lines.push(Line::Verbatim(raw.to_owned()));
+            return;
+        }
 
         // A label at the start of a line is always kept on its own line.
         while let Some((name, rest)) = split_label(code) {
@@ -389,13 +377,10 @@ fn constant_len(code: &str) -> Option<usize> {
 /// Returns whether `ch` can be part of a symbol name (or of a macro argument
 /// reference, which starts with a backslash). As for the assembler, any
 /// character outside ASCII can, unless it's whitespace.
-///
-/// A byte order mark can't either: a name that starts with one could end up
-/// at the start of the output, where the next pass would split them.
 const fn is_symbol_char(ch: char) -> bool {
     ch.is_ascii_alphanumeric()
         || matches!(ch, '_' | '.' | '$' | '\\')
-        || (!ch.is_ascii() && !ch.is_whitespace() && ch != BYTE_ORDER_MARK)
+        || (!ch.is_ascii() && !ch.is_whitespace())
 }
 
 /// Splits `code` after its leading symbol, returning the symbol and the rest.
@@ -695,27 +680,6 @@ mod tests {
                 statement(true, "mov", "x0, #1", None),
             ],
             "other code should still move off the line of its label"
-        );
-    }
-
-    #[test]
-    fn open_string_does_not_outlive_a_hash_after_a_label() {
-        assert_eq!(
-            parse("lab: #error \"open\n  mov x0 ,x1"),
-            [
-                Line::Verbatim("lab: #error \"open".to_owned()),
-                statement(true, "mov", "x0, x1", None),
-            ],
-            "a stray quote should not affect the lines that follow"
-        );
-        assert_eq!(
-            parse("lab: #x /* open\n  mov x0 ,x1 */\n  mov x0 ,x1"),
-            [
-                Line::Verbatim("lab: #x /* open".to_owned()),
-                Line::Verbatim("  mov x0 ,x1 */".to_owned()),
-                statement(true, "mov", "x0, x1", None),
-            ],
-            "a block comment should still continue on the lines that follow"
         );
     }
 

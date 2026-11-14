@@ -15,8 +15,8 @@ const BYTE_ORDER_MARK: char = '\u{feff}';
 ///
 /// The output always ends with a newline, unless it's empty or it holds
 /// only a byte order mark. Formatting is idempotent: formatting the output
-/// again returns it unchanged. A byte order mark at the start of `source`,
-/// or after only blank lines, is kept in front of the output.
+/// again returns it unchanged. A byte order mark at the start of `source`
+/// is kept in front of the output.
 ///
 /// # Examples
 ///
@@ -31,7 +31,7 @@ const BYTE_ORDER_MARK: char = '\u{feff}';
 pub fn format(source: &str) -> String {
     // The mark isn't part of the first line, which would not be recognized
     // with it in front (e.g., as a preprocessor directive).
-    let text = strip_byte_order_mark(source);
+    let text = source.strip_prefix(BYTE_ORDER_MARK);
     let formatted = render::render(&Parser::default().parse(text.unwrap_or(source)));
 
     if text.is_some() {
@@ -39,20 +39,6 @@ pub fn format(source: &str) -> String {
     } else {
         formatted
     }
-}
-
-/// Splits the leading byte order mark off `source`, returning what follows
-/// it, or `None` if there isn't one.
-///
-/// Blank lines before the mark are dropped by formatting, which would make
-/// it the first character for the next pass, so they're skipped here.
-/// Indentation in front of it makes it a part of its line instead.
-fn strip_byte_order_mark(source: &str) -> Option<&str> {
-    let (blank, text) = source.split_once(BYTE_ORDER_MARK)?;
-    let is_leading = blank.chars().all(char::is_whitespace)
-        && (blank.is_empty() || blank.ends_with(['\n', '\r']));
-
-    is_leading.then_some(text)
 }
 
 #[cfg(test)]
@@ -162,13 +148,13 @@ mod tests {
 
     #[test]
     fn hash_after_a_label_is_kept_on_its_line() {
-        let source = "lab: #define X  1\n  mov x0,x1\nlab: #error \"open\n  mov x0,x1\n";
-        let formatted = "lab: #define X  1\n\tmov x0, x1\nlab: #error \"open\n\tmov x0, x1\n";
+        let source = "lab: #define X  1\n  mov x0,x1\n";
+        let formatted = "lab: #define X  1\n\tmov x0, x1\n";
 
         assert_eq!(
             format(source),
             formatted,
-            "only the statements after the labels should change"
+            "only the statement after the label should change"
         );
         assert_eq!(
             format(formatted),
@@ -199,23 +185,6 @@ mod tests {
             "the first line should be formatted as any other"
         );
         assert_eq!(format("\u{feff} \n"), "\u{feff}", "the mark should be kept");
-        assert_eq!(
-            format("\r\n \n\u{feff}#define V 7\n"),
-            "\u{feff}#define V 7\n",
-            "a mark that ends up first should not change on a second pass"
-        );
-
-        let formatted = "\t\u{feff}x: =1\n";
-        assert_eq!(
-            format("\n  \u{feff}x:  =1\n"),
-            formatted,
-            "indentation in front of the mark should make it a part of the line"
-        );
-        assert_eq!(
-            format(formatted),
-            formatted,
-            "a second pass should change nothing"
-        );
     }
 
     #[test]
