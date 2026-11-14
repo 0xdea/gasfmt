@@ -65,14 +65,7 @@ _asmMain:
 - A string literal left open (e.g., by a stray `"` in a comment style that isn't recognized) makes the lines that
   follow pass through unchanged, up to the next `"`.
 - Lines holding a single quote that isn't part of a closed character constant (`'a'` or `'\n'`), such as the
-  single-quoted strings of `.ifc` or a constant without its closing quote, are passed through unchanged. What
-  follows such a quote isn't examined, so a string literal or a `/* */` comment that starts there and continues on
-  the next lines isn't recognized.
-- A line where a `#` follows a label (e.g., `label: #define X 1`) is passed through unchanged.
-- A `.macro` or an `.endm` that follows a `/* */` comment on its line (e.g., `/* end */ .endm`) isn't recognized,
-  so the lines after it are indented as if it weren't there.
-- Whitespace outside ASCII (e.g., a non-breaking space) is handled like any other whitespace, although the
-  assembler takes it as part of a name.
+  single-quoted strings of `.ifc` or a constant without its closing quote, are passed through unchanged.
 - Preprocessor directives are moved to column 0, so nested `#if` blocks lose their indentation.
 
 ## Installing
