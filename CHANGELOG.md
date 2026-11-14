@@ -41,9 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   of a line that is passed through unchanged was removed only on a second run.
 - Recognize labels and assignments whose names hold characters outside ASCII or the macro escapes `\@` and
   `\()` (e.g., `.L\@: ret`), instead of leaving them on the line of their code as if they were instructions.
-- Stop crashing when the reader of standard output or standard error closes the pipe early (e.g.,
-  `gasfmt --check *.S | head -1`). The run goes on quietly: all the files are still formatted or checked, and only
-  output that was cut short when formatting standard input makes the exit status a failure.
+- Report an error, instead of crashing, when the reader of standard output closes the pipe early (e.g.,
+  `gasfmt --check *.S | head -1`), and don't crash when the reader of standard error does.
 - Pass a line where a `#` follows a label (e.g., `label: #define X 1`) through unchanged, instead of moving the
   `#` to a line of its own, where a second run would move it again as a preprocessor directive. The label now
   stays on that line, which keeps its indentation and its comment as written.
