@@ -87,9 +87,9 @@ fn main() -> ExitCode {
 
 /// Formats standard input to standard output.
 ///
-/// If `mode` isn't `Mode::Write`, the formatted text isn't printed: a
-/// message says whether the input needs formatting, and `Mode::Diff` also
-/// prints the changes.
+/// If `mode` isn't `Mode::Write`, the formatted text isn't printed. If the
+/// input needs formatting, a message says so, and `Mode::Diff` also prints
+/// the changes.
 ///
 /// Returns `false` if the input needs formatting and `mode` isn't
 /// `Mode::Write`.

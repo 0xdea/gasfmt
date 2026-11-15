@@ -75,7 +75,7 @@ gasfmt is line-oriented by design: it never parses instructions, operands, or ex
 
 - `src/line.rs` `mod tests` asserts on classified `Line` values (use the `parse` and `statement` helpers).
 - `src/lib.rs` `mod tests` asserts on the final text, including idempotency.
-- `tests/main.rs` runs the built binary (`CARGO_BIN_EXE_gasfmt`) against the hand-formatted fixtures in `tests/data/`, which are embedded with `include_str!` and listed in the `FIXTURES` array: each must format to itself, and a copy scrambled by `scramble` (extra whitespace, CRLF, blank lines) must be restored exactly. A new fixture must be added to `FIXTURES`, and must already be formatted.
+- `tests/main.rs` runs the built binary (`CARGO_BIN_EXE_gasfmt`) against the hand-formatted fixtures in `tests/data/`, which are embedded with `include_str!` and listed in the `FIXTURES` array: each must format to itself, and a copy scrambled by `scramble` (extra whitespace, CRLF, blank lines) must be restored exactly. A new fixture must be added to `FIXTURES`, and must already be formatted. It can't hold lines that are passed through or whitespace that is kept as written (in character constants or `.ifc` operands): `scramble` only protects comments, strings, and preprocessor directives, and gasfmt doesn't undo the rest.
 - The fixtures are compared byte by byte, so `.gitattributes` forces LF line endings on every platform. Don't remove it: the Windows CI job depends on it.
 
 ## Lint Policy and Toolchain
