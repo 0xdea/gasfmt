@@ -80,7 +80,7 @@ gasfmt is line-oriented by design: it never parses instructions, operands, or ex
 
 ## Lint Policy and Toolchain
 
-`Cargo.toml` `[workspace.lints]` (inherited via `[lints] workspace = true`) enables `missing_docs` and clippy `all`/`pedantic`/`nursery`/`cargo`/`restriction` at `warn`, minus an explicit allowlist. `[workspace.lints.cargo]` likewise enables Cargo's `default`, `pedantic`, and `restriction` lint groups (manifest checks such as unused dependencies), minus the snake_case naming lints, which contradict the kebab-case ones. Every item needs a doc comment, private ones and test helpers included, and `unwrap`, `expect`, and `panic!` are not allowed outside tests. Suppress a lint with `#[expect(clippy::lint, reason = "...")]`, not `#[allow]`.
+`Cargo.toml` `[workspace.lints]` (inherited via `[lints] workspace = true`) enables `missing_docs` and clippy `all`/`pedantic`/`nursery`/`cargo`/`restriction` at `warn`, minus an explicit allowlist. `[workspace.lints.cargo]` likewise enables Cargo's `default`, `pedantic`, and `restriction` lint groups (manifest checks such as unused dependencies), minus the snake_case naming lints, which contradict the kebab-case ones. Every item needs a doc comment, private ones and test helpers included, and `unwrap`, `expect`, and `panic!` are not allowed outside tests (`clippy.toml` allows `unwrap`, `expect`, `panic!`, and indexing in tests, so they need no suppression there). Suppress a lint with `#[expect(clippy::lint, reason = "...")]`, not `#[allow]`.
 
 `rust-version = "1.88"` is required by the `let` chain in `split_statement`.
 

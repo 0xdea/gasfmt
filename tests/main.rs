@@ -1,7 +1,5 @@
 //! Integration tests for the `gasfmt` library and binary.
 
-#![expect(clippy::expect_used, reason = "tests can use `expect`")]
-
 #[cfg(test)]
 mod tests {
     use std::io::{self, Write as _};
