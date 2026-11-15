@@ -290,7 +290,7 @@ impl Parser {
     /// as they were.
     fn indent(&self, head: &str, tail: &str, indented: bool) -> bool {
         // `.macro` definitions are placed at column 0, bodies included
-        if self.macro_depth > 0 || is_macro_start(head) || is_macro_end(head) {
+        if self.macro_depth > 0 || is_macro_end(head) {
             return false;
         }
 
