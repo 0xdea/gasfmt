@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Pass lines holding a single quote that isn't part of a closed character constant (`'a'` or `'\n'`) through
   unchanged, instead of formatting them. This includes constants written without their closing quote.
+- Replace the logo with a lighter version.
 
 ### Removed
 
