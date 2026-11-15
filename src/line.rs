@@ -213,8 +213,11 @@ impl Parser {
         let mut code = code.trim();
 
         // On a line of its own, a hash that follows a label would be taken
-        // for the start of a preprocessor directive by the next pass.
-        if skip_labels(code).starts_with('#') {
+        // for the start of a preprocessor directive by the next pass. A name
+        // glued to a parenthesis is a preprocessor macro invocation (e.g.,
+        // `ENTRY(main)`), which may expand to anything.
+        let (_, after_symbol) = split_symbol(skip_labels(code));
+        if after_symbol.starts_with(['#', '(']) {
             lines.push(Line::Verbatim(raw.to_owned()));
             return;
         }
@@ -709,6 +712,20 @@ mod tests {
     }
 
     #[test]
+    fn preprocessor_macro_invocations_are_passed_through() {
+        assert_eq!(
+            parse("ENTRY(main)\n  mov x0, #(1 + 2)\nx=(1 + 2)\nmain: CALL(f,  x0) // call"),
+            [
+                Line::Verbatim("ENTRY(main)".to_owned()),
+                statement(true, "mov", "x0, #(1 + 2)", None),
+                statement(false, "x", "= (1 + 2)", None),
+                Line::Verbatim("main: CALL(f,  x0) // call".to_owned()),
+            ],
+            "only a name glued to its parenthesis should be passed through"
+        );
+    }
+
+    #[test]
     fn string_comparison_operands_are_kept_untouched() {
         assert_eq!(
             parse("  .ifc   a  b ,a b  // c\nlab: .IFNC \\x  y,z"),
@@ -786,12 +803,9 @@ mod tests {
             "these names should be recognized as symbols"
         );
         assert_eq!(
-            parse("a@b: ret\na(): ret"),
-            [
-                statement(true, "a@b:", "ret", None),
-                statement(true, "a():", "ret", None),
-            ],
-            "the escapes should need their backslash"
+            parse("a@b: ret"),
+            [statement(true, "a@b:", "ret", None)],
+            "the escape should need its backslash"
         );
     }
 

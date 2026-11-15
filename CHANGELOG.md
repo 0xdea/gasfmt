@@ -44,6 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `\()` (e.g., `.L\@: ret`), instead of leaving them on the line of their code as if they were instructions.
 - Report an error, instead of crashing, when the reader of standard output closes the pipe early (e.g.,
   `gasfmt --check *.S | head -1`), and don't crash when the reader of standard error does.
+- Pass a line that starts with a preprocessor macro invocation (e.g., `ENTRY(main)` or `CALL(f, x0)`) through
+  unchanged, instead of indenting it as an instruction and aligning what follows its first space.
 - Place the comment lines of a `.macro` body at column 0, like the code around them, instead of keeping their
   indentation.
 - Pass a line where a `#` follows a label (e.g., `label: #define X 1`) through unchanged, instead of moving the

@@ -66,6 +66,8 @@ _asmMain:
   follow pass through unchanged, up to the next `"`.
 - Lines holding a single quote that isn't part of a closed character constant (`'a'` or `'\n'`), such as the
   single-quoted strings of `.ifc` or a constant without its closing quote, are passed through unchanged.
+- Lines that start with a preprocessor macro invocation (e.g., `ENTRY(main)`) are passed through unchanged,
+  because it may expand to anything.
 - Preprocessor directives are moved to column 0, so nested `#if` blocks lose their indentation.
 
 ## Installing
