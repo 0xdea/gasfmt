@@ -284,6 +284,7 @@ impl Parser {
     /// data directives always are, while assignments and other directives stay
     /// as they were.
     fn indent(&self, head: &str, tail: &str, indented: bool) -> bool {
+        // `.macro` definitions are placed at column 0, bodies included
         if self.macro_depth > 0 || is_macro_start(head) || is_macro_end(head) {
             return false;
         }
@@ -311,6 +312,9 @@ impl Parser {
 /// starts or ends on another line, or a quote that isn't part of a closed
 /// character constant. The scan stops at such a quote, so that nothing after
 /// it can affect the lines that follow.
+///
+/// Returns where the `//` comment starts, if there is one, whether the line
+/// is passed through, and the context the line ends in.
 fn scan(line: &str, context: Context) -> Scan {
     let mut context = context;
     let mut verbatim = context != Context::Code;
@@ -349,6 +353,7 @@ fn scan(line: &str, context: Context) -> Scan {
                         context,
                     };
                 };
+                // Skip the constant.
                 for _ in 0..len {
                     chars.next();
                 }
@@ -370,9 +375,10 @@ fn scan(line: &str, context: Context) -> Scan {
 
 /// Returns how many characters complete a character constant.
 ///
-/// `code` is the text right after an opening quote. The constant is complete
-/// if a character, which may be escaped with a backslash, and the closing
-/// quote follow (as in `'a'` or `'\n'`). Returns `None` otherwise.
+/// Only one-character escapes are recognized. `code` is the text right
+/// after an opening quote. The constant is complete if a character,
+/// which may be escaped with a backslash, and the closing quote follow
+/// (as in `'a'` or `'\n'`). Returns `None` otherwise.
 fn constant_len(code: &str) -> Option<usize> {
     let mut chars = code.chars();
     let len = if chars.next()? == '\\' {
@@ -458,6 +464,8 @@ fn is_macro_end(directive: &str) -> bool {
 /// The operands of `.ifc` and `.ifnc` are only trimmed.
 fn split_statement(code: &str) -> (String, String) {
     let (symbol, rest) = split_symbol(code);
+
+    // Handle an assignment.
     if !symbol.is_empty()
         && let Some(expression) = rest.trim_start().strip_prefix('=')
         && !expression.starts_with('=')
