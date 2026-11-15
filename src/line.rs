@@ -434,6 +434,15 @@ fn split_label(code: &str) -> Option<(&str, &str)> {
     (!name.is_empty()).then(|| (name, rest.trim_start()))
 }
 
+/// Returns what follows the leading labels of `code`.
+fn skip_labels(mut code: &str) -> &str {
+    while let Some((_, rest)) = split_label(code) {
+        code = rest;
+    }
+
+    code
+}
+
 /// Returns whether `directive` starts a macro definition.
 fn is_macro_start(directive: &str) -> bool {
     directive.eq_ignore_ascii_case(".macro")
@@ -442,15 +451,6 @@ fn is_macro_start(directive: &str) -> bool {
 /// Returns whether `directive` ends a macro definition.
 fn is_macro_end(directive: &str) -> bool {
     directive.eq_ignore_ascii_case(".endm") || directive.eq_ignore_ascii_case(".endmacro")
-}
-
-/// Returns what follows the leading labels of `code`.
-fn skip_labels(mut code: &str) -> &str {
-    while let Some((_, rest)) = split_label(code) {
-        code = rest;
-    }
-
-    code
 }
 
 /// Splits the statement in `code` into its head and its normalized tail.

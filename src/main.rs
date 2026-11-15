@@ -47,12 +47,12 @@ struct Arguments {
 /// What to do with input that needs formatting.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Mode {
-    /// Write the formatted text.
-    Write,
     /// Only report that formatting is needed.
     Check,
     /// Only show the changes that formatting would make.
     Diff,
+    /// Write the formatted text.
+    Write,
 }
 
 fn main() -> ExitCode {
