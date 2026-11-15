@@ -259,8 +259,11 @@ impl Parser {
         }
     }
 
-    /// Updates the nesting depth of macro definitions if `code`, the text of
-    /// a line that starts a statement, starts or ends one after its labels.
+    /// Tracks how deep the parser is inside nested macro definitions.
+    ///
+    /// `code` is the text of a line that starts a statement. The depth goes up
+    /// by one if the first thing after its labels is `.macro`, and down by one
+    /// if it's `.endm` or `.endmacro`. Any other line leaves it unchanged.
     fn track_macros(&mut self, code: &str) {
         let (directive, _) = split_symbol(skip_labels(code));
 
@@ -273,8 +276,13 @@ impl Parser {
         }
     }
 
-    /// Decides whether the statement made of `head` and `tail` is indented,
-    /// given whether it was `indented` in the source.
+    /// Decides whether a statement is indented.
+    ///
+    /// `head` and `tail` are its two parts, and `indented` is whether it was
+    /// indented in the source. Nothing is indented inside a macro definition,
+    /// nor are the lines that start and end one. Elsewhere, instructions and
+    /// data directives always are, while assignments and other directives stay
+    /// as they were.
     fn indent(&self, head: &str, tail: &str, indented: bool) -> bool {
         if self.macro_depth > 0 || is_macro_start(head) || is_macro_end(head) {
             return false;
@@ -295,13 +303,14 @@ impl Parser {
     }
 }
 
-/// Scans `line` for a `//` comment and for constructs that are passed
-/// through unchanged (`/* */` comments, `;` separators, string literals
-/// spanning several lines, and quotes that aren't part of a closed character
-/// constant), starting in the `context` left open by the previous line.
+/// Scans `line` for a `//` comment and for anything that makes the line
+/// pass through unchanged.
 ///
-/// The scan stops at a quote that isn't part of a closed character constant,
-/// so that nothing after it can affect the lines that follow.
+/// `context` is the one the previous line ended in. A line is passed through
+/// if it holds a `/* */` comment, a `;` separator, a string literal that
+/// starts or ends on another line, or a quote that isn't part of a closed
+/// character constant. The scan stops at such a quote, so that nothing after
+/// it can affect the lines that follow.
 fn scan(line: &str, context: Context) -> Scan {
     let mut context = context;
     let mut verbatim = context != Context::Code;
@@ -359,12 +368,11 @@ fn scan(line: &str, context: Context) -> Scan {
     }
 }
 
-/// Returns the number of characters at the start of `code`, which follows an
-/// opening quote, that complete a character constant: a character, which may
-/// be escaped with a backslash, and the closing quote (as in `'a'` or
-/// `'\n'`).
+/// Returns how many characters complete a character constant.
 ///
-/// Returns `None` if the quote doesn't open such a constant.
+/// `code` is the text right after an opening quote. The constant is complete
+/// if a character, which may be escaped with a backslash, and the closing
+/// quote follow (as in `'a'` or `'\n'`). Returns `None` otherwise.
 fn constant_len(code: &str) -> Option<usize> {
     let mut chars = code.chars();
     let len = if chars.next()? == '\\' {
@@ -377,9 +385,11 @@ fn constant_len(code: &str) -> Option<usize> {
     (chars.next()? == '\'').then_some(len)
 }
 
-/// Returns whether `ch` can be part of a symbol name (or of a macro argument
-/// reference, which starts with a backslash). As for the assembler, any
-/// character outside ASCII can, unless it's whitespace.
+/// Returns whether `ch` can be part of a symbol name.
+///
+/// Letters, digits, `_`, `.` and `$` can, and so can any character outside
+/// ASCII that isn't whitespace, as for the assembler. A backslash can too,
+/// since it starts a macro argument reference.
 const fn is_symbol_char(ch: char) -> bool {
     ch.is_ascii_alphanumeric()
         || matches!(ch, '_' | '.' | '$' | '\\')
@@ -481,9 +491,11 @@ fn split_statement(code: &str) -> (String, String) {
     (head.to_owned(), tail)
 }
 
-/// Normalizes the whitespace of `operands`: runs are collapsed into a single
-/// space, and commas are followed, but not preceded, by one. String literals
-/// and character constants are left untouched.
+/// Normalizes the whitespace of `operands`.
+///
+/// Runs are collapsed into a single space, and commas are followed, but not
+/// preceded, by one. String literals and character constants are left
+/// untouched.
 fn normalize(operands: &str) -> String {
     let mut normalized = String::with_capacity(operands.len());
     let mut context = Context::Code;

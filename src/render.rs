@@ -25,8 +25,10 @@ impl Line {
 }
 
 impl Statement {
-    /// Renders the statement without indentation and trailing comment, with
-    /// its head padded to `head_width` characters when a tail follows.
+    /// Renders the head and the tail, without indentation or trailing comment.
+    ///
+    /// The head is padded to `head_width` characters if a tail follows, so that
+    /// the operands of a block line up.
     fn code(&self, head_width: usize) -> String {
         if self.tail.is_empty() {
             self.head.clone()
@@ -35,8 +37,10 @@ impl Statement {
         }
     }
 
-    /// Renders the whole statement, with its head padded to `head_width`
-    /// characters and its code to `code_width` when a comment follows.
+    /// Renders the whole statement, indentation and trailing comment included.
+    ///
+    /// The head is padded to `head_width` characters. If a comment follows, the
+    /// code is padded to `code_width`, so that the comments of a block line up.
     fn render(&self, head_width: usize, code_width: usize) -> String {
         let indent = indent(self.indented);
         let code = self.code(head_width);
@@ -96,7 +100,7 @@ fn render_block(block: &[Line], output: &mut String) {
     }
 }
 
-/// Returns the indentation of a line that is `indented` or not.
+/// Returns the text a line starts with: a tab if `indented`, else nothing.
 const fn indent(indented: bool) -> &'static str {
     if indented { INDENT } else { "" }
 }

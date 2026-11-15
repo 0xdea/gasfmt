@@ -85,11 +85,14 @@ fn main() -> ExitCode {
     }
 }
 
-/// Formats standard input to standard output or, depending on `mode`, only
-/// reports whether it needs formatting or shows the changes.
+/// Formats standard input to standard output.
 ///
-/// Returns `false` if nothing was to be written and the input needs
-/// formatting.
+/// If `mode` isn't `Mode::Write`, the formatted text isn't printed: a
+/// message says whether the input needs formatting, and `Mode::Diff` also
+/// prints the changes.
+///
+/// Returns `false` if the input needs formatting and `mode` isn't
+/// `Mode::Write`.
 ///
 /// # Errors
 ///
@@ -120,15 +123,15 @@ fn format_stdin(mode: Mode) -> anyhow::Result<bool> {
     Ok(mode == Mode::Write || !needs_formatting)
 }
 
-/// Formats `files` in place or, depending on `mode`, only reports the ones
-/// that need formatting or shows the changes to them.
+/// Formats `files` in place.
 ///
-/// The path of each file that was (or needs to be) formatted is printed to
-/// standard output, one per line, in the order given. When showing the
-/// changes, the unified diff of each of those files is printed instead.
+/// If `mode` isn't `Mode::Write`, no file is written. The path of each file
+/// that was (or needs to be) formatted is printed to standard output, one
+/// per line, in the order given. `Mode::Diff` prints the unified diff of
+/// each of those files instead.
 ///
-/// Returns `false` if nothing was to be written and some files need
-/// formatting.
+/// Returns `false` if some files need formatting and `mode` isn't
+/// `Mode::Write`.
 ///
 /// # Errors
 ///
@@ -180,8 +183,9 @@ fn format_files(files: &[PathBuf], mode: Mode) -> anyhow::Result<bool> {
     Ok(mode == Mode::Write || changed == 0)
 }
 
-/// Writes to `output` the unified diff that turns `source` into `formatted`,
-/// both called `name` in its header.
+/// Writes to `output` the unified diff that turns `source` into `formatted`.
+///
+/// `name` is used for both files in the header.
 ///
 /// # Errors
 ///
