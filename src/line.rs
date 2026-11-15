@@ -248,8 +248,10 @@ impl Parser {
                 tail,
                 comment,
             }));
-        // Only a comment.
+        // Only a comment, which goes to column 0 in a macro body like the code
+        // around it.
         } else if let Some(text) = comment {
+            let indented = indented && self.macro_depth == 0;
             lines.push(Line::Comment { indented, text });
         // Blank line after a line that isn't blank.
         } else if lines.last().is_some_and(|last| *last != Line::Blank) {
@@ -841,6 +843,31 @@ mod tests {
                 statement(true, "ret", "", None),
             ],
             "macro definitions should sit at column 0"
+        );
+    }
+
+    #[test]
+    fn comments_are_not_indented_in_macro_bodies() {
+        assert_eq!(
+            parse("  // before\n.macro leave\n  // inside\n  ret\n.endm\n  // after"),
+            [
+                Line::Comment {
+                    indented: true,
+                    text: "// before".to_owned(),
+                },
+                statement(false, ".macro", "leave", None),
+                Line::Comment {
+                    indented: false,
+                    text: "// inside".to_owned(),
+                },
+                statement(false, "ret", "", None),
+                statement(false, ".endm", "", None),
+                Line::Comment {
+                    indented: true,
+                    text: "// after".to_owned(),
+                },
+            ],
+            "only the comments of a macro body should lose their indentation"
         );
     }
 
