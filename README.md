@@ -3,8 +3,7 @@
 [![](https://img.shields.io/github/stars/0xdea/gasfmt.svg?style=flat&color=yellow)](https://github.com/0xdea/gasfmt)
 [![](https://img.shields.io/crates/v/gasfmt?style=flat&color=green)](https://crates.io/crates/gasfmt)
 [![](https://img.shields.io/crates/d/gasfmt?style=flat&color=red)](https://crates.io/crates/gasfmt)
-[![](https://img.shields.io/badge/twitter-%400xdea-blue.svg)](https://twitter.com/0xdea)
-[![](https://img.shields.io/badge/mastodon-%40raptor-purple.svg)](https://infosec.exchange/@raptor)
+[![](https://img.shields.io/badge/mastodon-%40raptor-blue.svg)](https://infosec.exchange/@raptor)
 [![build](https://github.com/0xdea/gasfmt/actions/workflows/build.yml/badge.svg)](https://github.com/0xdea/gasfmt/actions/workflows/build.yml)
 
 > "Having to maintain two separate symbols whose values are dependent on one another is not a good thing in a program."
