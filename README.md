@@ -5,6 +5,7 @@
 [![](https://img.shields.io/crates/d/gasfmt?style=flat&color=red)](https://crates.io/crates/gasfmt)
 [![](https://img.shields.io/badge/mastodon-%40raptor-blue.svg)](https://infosec.exchange/@raptor)
 [![build](https://github.com/0xdea/gasfmt/actions/workflows/build.yml/badge.svg)](https://github.com/0xdea/gasfmt/actions/workflows/build.yml)
+[![doc](https://img.shields.io/docsrs/gasfmt)](https://docs.rs/gasfmt)
 
 > "Having to maintain two separate symbols whose values are dependent on one another is not a good thing in a program."
 >
